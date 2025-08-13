@@ -1,0 +1,40 @@
+name: "Edge-Proxy-Profile"
+manufacturer: "HY"
+model: "test"
+labels:
+  - "edgex-proxy"
+description: "边缘代理节点"
+
+deviceResources:
+  - name: "Router_Parameter_Query"   # 路由参数查询，查询所有拓扑信息
+    isHidden: true
+    description: "0未开启 1查询全部通用参数"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"        
+      units: ""            
+      defaultValue: "0"     
+  - name: "Routing_Information"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
+    isHidden: true
+    description: "任意 JSON 对象"
+    properties:
+      valueType: "Object"    
+      readWrite: "R"        
+      units: ""            
+      defaultValue: "{}"     
+  - name: "EID"                # 设备唯一标识
+    isHidden: false                   
+    description: ""
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A08262316"    
+deviceCommands:
+  -
+    name: "Command_Router_Parameter_Query"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Router_Parameter_Query", defaultValue: "0" }
+

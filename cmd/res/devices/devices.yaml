@@ -1,0 +1,55 @@
+deviceList:
+  - name: "Friendcom-TempHumi-Sensor"
+    profileName: "Friendcom-TempHumi-Profile"
+    description: "友讯达温湿度传感器"
+    labels:
+      - temp-humi
+    protocols:
+      custom:
+        location: /dev/ttyUSB0
+        baudRate: "115200"
+  - name: "Friendcom-Water-Level-Sensor"
+    profileName: "Friendcom-Water-Level-Profile"
+    description: "友讯达超声波水位传感器"
+    labels:
+      - water-level
+    protocols:
+      custom:
+        location: /dev/ttyUSB0
+        baudRate: "115200"
+  - name: "Command-Demo"
+    profileName: "Command-Demo-Profile"
+    description: "控制命令汇总"
+    labels:
+      - test
+    protocols:
+      custom:
+        location: /dev/ttyUSB0
+        baudRate: "115200"
+  - name: "Edge-Node"
+    profileName: "Edge-Proxy-Profile"
+    description: "边缘接入节点"
+    labels:
+      - edge-node
+    protocols:
+      custom:
+        location: /dev/ttyUSB0
+        baudRate: "115200"
+  - name: "Data-Demo"
+    profileName: "Data-Demo-Profile"
+    description: "数据上传demo"
+    labels:
+      - test
+    protocols:
+      custom:
+        location: /dev/ttyUSB0
+        baudRate: "115200"
+  - name: "Sink-Node"
+    profileName: "Sink-Node-Profile"
+    description: "汇源汇聚节点"
+    labels:
+      - sinke-node
+    protocols:
+      custom:
+        location: /dev/ttyUSB0
+        baudRate: "115200"

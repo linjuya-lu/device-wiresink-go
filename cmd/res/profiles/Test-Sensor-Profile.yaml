@@ -1,0 +1,86 @@
+name: "Test-Sensor-Profile"
+manufacturer: "HY"
+model: "test-sensor"
+labels:
+  - "data-command-test"
+description: "数据汇总"
+
+deviceResources:
+  - name: "routerParameterQuery"   # 路由参数查询，查询所有拓扑信息
+    isHidden: false
+    description: "0未开启 1查询全部通用参数"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"        
+      units: ""            
+      defaultValue: "0"     
+  - name: "routingInformation"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
+    isHidden: true
+    description: "任意 JSON 对象"
+    properties:
+      valueType: "Object"    
+      readWrite: "R"        
+      units: ""            
+      defaultValue: "{}"     
+  - name: "eid"                # 设备唯一标识
+    isHidden: true                   
+    description: ""
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A0821BF34"    
+  - name: "length"                # 长度
+    isHidden: true                   
+    description: "长度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"    
+  - name: "openingCoilCurrentTimeWaveform"                # 分闸线圈电流一阶时间波形
+    isHidden: true                   
+    description: "分闸线圈电流一阶时间波形"
+    properties:
+      valueType: "Float32Array"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "[0]"    
+  - name: "lastDataTimestamp"                       # 上次收到数据的时间戳
+    isHidden: true
+    description: "上次收到数据的系统时间（Unix 纳秒）"
+    properties:
+      valueType: "Int64"                            # 64 位整数，纳秒级
+      readWrite: "R"                                # 只读，Driver 内更新
+      units: "ns"
+      defaultValue: "0"
+  - name: "state"
+    isHidden: false
+    description: "传感器运行状态(0=正常,1=故障)"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "period"
+    isHidden: false
+    description: "上报周期（秒）"
+    properties:
+      valueType: "Uint32"  # 秒数通常不会超过 2^32
+      readWrite: "R"
+      units: "s"
+      defaultValue: "0"
+
+deviceCommands:
+  -
+    name: "commandLength"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "length", defaultValue: "0" }
+  -
+    name: "commandRoutingInformation"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "routingInformation", defaultValue: "{}" }

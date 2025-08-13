@@ -1,0 +1,209 @@
+name: "Sink-Node-Profile"
+manufacturer: "HY"
+model: "sink-node"
+labels:
+  - "sinke-node"
+description: "汇源汇聚节点"
+
+deviceResources: 
+  - name: "eid"               
+    isHidden: false                   
+    description: "设备唯一标识"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A08411011"    
+  - name: "BatteryVoltage"                
+    isHidden: false                   
+    description: "网关工作电压"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"    
+  - name: "ElectricCurrent"                
+    isHidden: false                   
+    description: "网关工作电流"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"    
+  - name: "Temperature"                
+    isHidden: false                   
+    description: "网关工作温度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "10minAvgWindSpeed"                
+    isHidden: false                   
+    description: "平均风速"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "10minAvgWindDirection"                
+    isHidden: false                   
+    description: "平均风向"
+    properties:
+      valueType: "Int16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "MaxWindSpeed"                
+    isHidden: false                   
+    description: "最大风速"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Temperature1"                
+    isHidden: false                   
+    description: "环境温度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Humidity1"                
+    isHidden: false                   
+    description: "环境湿度"
+    properties:
+      valueType: "Uint16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Pressure"                
+    isHidden: false                  
+    description: "大气气压"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Rainfall10min"                
+    isHidden: false                   
+    description: "雨量"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "SolarRadiation"                
+    isHidden: false                   
+    description: "光照强度"
+    properties:
+      valueType: "Uint16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "lastDataTimestamp"                       # 上次收到数据的时间戳
+    isHidden: false
+    description: "上次收到数据的系统时间(Unix 纳秒）"
+    properties:
+      valueType: "Int64"                            # 64 位整数，纳秒级
+      readWrite: "R"                                
+      units: "ns"
+      defaultValue: "0"
+  - name: "state"
+    isHidden: false
+    description: "传感器运行状态(0=正常,1=故障)"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "period"
+    isHidden: false
+    description: "上报周期（秒）"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "60"
+  - name: "AsyncReporting"
+    isHidden: false
+    description: "资源上传"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "0"
+  - name: "reset_ctl"               
+    isHidden: false                   
+    description: "复位设置响应"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "" 
+  - name: "timestamp"               
+    isHidden: false                   
+    description: "时间查询响应"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "" 
+  - name: "Time_Parameter_Query"  # 时间参数查询
+    isHidden: true
+    description: "0未开启 1查询全部告警数据"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"  
+  - name: "Time_Parameter_Set"  # 时间参数设置
+    isHidden: true
+    description: "0未开启 1设置全部告警数据"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"      
+  - name: "Reset_Set"  # ID参数查询
+    isHidden: true
+    description: "0未开启 1查询ID"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"   
+  - name: "Monitoring_Data_Query"  # 监测数据查询
+    isHidden: true
+    description: "0未开启 1查询全部监测数据"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"    
+deviceCommands:
+  -
+    name: "Command_Time_Parameter_Query"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Time_Parameter_Query", defaultValue: "0" }
+  -
+    name: "Command_Time_Parameter_Set"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Time_Parameter_Set", defaultValue: "0" }
+  -
+    name: "Command_Reset_Set"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Reset_Set", defaultValue: "0" }
+  -
+    name: "Command_Monitoring_Data_Query"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Monitoring_Data_Query", defaultValue: "0" }

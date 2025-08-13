@@ -1,0 +1,79 @@
+name: "Friendcom-Water-Level-Profile"
+manufacturer: "Friendcom"
+model: "WATER-LVL"
+labels:
+  - "environment"
+description: "友讯达水位传感器"
+
+deviceResources:
+  - name: "water-level"
+    isHidden: false
+    description: "当前水位(单位 cm)"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "cm"
+      defaultValue: "0"
+
+  - name: "voltage"
+    isHidden: false
+    description: "设备电压(单位 V)"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "V"
+      defaultValue: "0"
+
+  - name: "battery-level"
+    isHidden: false
+    description: "电池剩余电量(0~100)"
+    properties:
+      valueType: "Uint16"
+      readWrite: "R"
+      units: "%"
+      defaultValue: "0"
+
+  - name: "state"
+    isHidden: false
+    description: "设备在线状态(0=正常,1=故障,2=低电)"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+
+  - name: "EID"
+    isHidden: false                    
+    description: "设备唯一标识"
+    properties:
+      valueType: "String"            
+      readWrite: "RW"                 
+      units: ""                      
+      defaultValue: "238A08262314"               
+
+  - name: "reset-command"   # ——— 复位控制命令 ———
+    isHidden: false
+    description: "复位控制命令(写1触发复位)"
+    properties:
+      valueType: "Uint8"    # 用 1 字节来表示操作码
+      readWrite: "RW"        # 向设备下发复位指令
+      units: ""            
+      defaultValue: "0"     # 默认不触发
+
+  - name: "json"   # ——— 复位控制命令 ———
+    isHidden: false
+    description: "控制命令"
+    properties:
+      valueType: "Object"    # 用 1 字节来表示操作码
+      readWrite: "RW"        # 向设备下发复位指令
+      units: ""            
+      defaultValue: "0"     # 默认不触发
+
+  - name: "reset-response"  # ——— 复位响应状态 ———
+    isHidden: false
+    description: "复位响应状态(0=失败,1=成功)"
+    properties:
+      valueType: "Uint8"    # 1 字节状态码
+      readWrite: "R"        # 只读，驱动收到设备反馈后填入
+      units: "code"
+      defaultValue: "0"     # 默认失败

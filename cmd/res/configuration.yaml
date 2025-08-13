@@ -1,0 +1,18 @@
+MaxEventSize: 0 
+Writable:
+  LogLevel: INFO
+
+Service:
+  Host: 0.0.0.0
+  Port: 59910
+  StartupMsg: device wiresink started
+
+MessageBus:
+  Optional:
+    ClientId: device-wiresink
+
+Device:
+  EnableAsyncReadings: true     # 开启异步上报
+  AsyncBufferSize: 16           # 设置异步上报缓冲通道个数
+  ProfilesDir: "./res/profiles"
+  DevicesDir: "./res/devices"

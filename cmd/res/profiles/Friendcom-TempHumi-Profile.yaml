@@ -1,0 +1,91 @@
+name: "Friendcom-TempHumi-Profile"
+manufacturer: "Friendcom"
+model: "TEMP-HUMI"
+labels:
+  - "environment"
+description: "友讯达温湿度传感器"
+
+deviceResources:
+  - name: "temperature"
+    isHidden: false
+    description: "传感器解析后的环境温度值"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "℃"
+      defaultValue: "0"
+
+  - name: "humidity"
+    isHidden: false
+    description: "传感器解析后的空气湿度值"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "%RH"
+      defaultValue: "0"
+
+  - name: "voltage"
+    isHidden: false
+    description: "传感器供电电压(单位V)"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "V"
+      defaultValue: "0"
+
+  - name: "battery-level"
+    isHidden: false
+    description: "传感器电池电量(0~100)"
+    properties:
+      valueType: "Uint16"
+      readWrite: "R"
+      units: "%"
+      defaultValue: "0"
+
+  - name: "state"
+    isHidden: false
+    description: "传感器运行状态(0=正常,1=故障,2=低电)"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+
+  - name: "EID"
+    isHidden: false                    
+    description: "设备唯一标识"
+    properties:
+      valueType: "String"            
+      readWrite: "RW"                 
+      units: ""                      
+      defaultValue: "238A08262315"               
+
+  - name: "reset-command"   # ——— 复位控制命令 ———
+    isHidden: false
+    description: "复位控制命令(写1触发复位)"
+    properties:
+      valueType: "Uint8"    # 用 1 字节来表示操作码
+      readWrite: "RW"        # 向设备下发复位指令
+      units: ""            
+      defaultValue: "0"     # 默认不触发
+
+  - name: "reset-response"  # ——— 复位响应状态 ———
+    isHidden: false
+    description: "复位响应状态(0=失败,1=成功)"
+    properties:
+      valueType: "Uint8"    # 1 字节状态码
+      readWrite: "R"        # 只读，驱动收到设备反馈后填入
+      units: "code"
+      defaultValue: "0"     # 默认失败
+
+  - name: "command-json"   # ——— 复位控制命令 ———
+    isHidden: false
+    description: "控制命令"
+    properties:
+      valueType: "Object"    # 用 1 字节来表示操作码
+      readWrite: "RW"        # 向设备下发复位指令
+      units: ""            
+      defaultValue: "0"     # 默认不触发
+
+
+      
