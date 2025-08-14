@@ -209,3 +209,9 @@ func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
 	token.Wait()
 	return token.Error()
 }
+
+func Close(ms uint) {
+	if MqttClient != nil && MqttClient.IsConnectionOpen() {
+		MqttClient.Disconnect(ms)
+	}
+}

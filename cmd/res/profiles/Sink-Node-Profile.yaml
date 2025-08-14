@@ -7,7 +7,7 @@ description: "汇源汇聚节点"
 
 deviceResources: 
   - name: "eid"               
-    isHidden: false                   
+    isHidden: true                   
     description: "设备唯一标识"
     properties:
       valueType: "String"            
@@ -15,7 +15,7 @@ deviceResources:
       units: ""                      
       defaultValue: "238A08411011"    
   - name: "BatteryVoltage"                
-    isHidden: false                   
+    isHidden: true                   
     description: "网关工作电压"
     properties:
       valueType: "Float32"            
@@ -23,7 +23,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"    
   - name: "ElectricCurrent"                
-    isHidden: false                   
+    isHidden: true                   
     description: "网关工作电流"
     properties:
       valueType: "Float32"            
@@ -31,7 +31,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"    
   - name: "Temperature"                
-    isHidden: false                   
+    isHidden: true                   
     description: "网关工作温度"
     properties:
       valueType: "Float32"            
@@ -39,7 +39,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "10minAvgWindSpeed"                
-    isHidden: false                   
+    isHidden: true                   
     description: "平均风速"
     properties:
       valueType: "Float32"            
@@ -47,7 +47,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "10minAvgWindDirection"                
-    isHidden: false                   
+    isHidden: true                   
     description: "平均风向"
     properties:
       valueType: "Int16"            
@@ -55,7 +55,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "MaxWindSpeed"                
-    isHidden: false                   
+    isHidden: true                   
     description: "最大风速"
     properties:
       valueType: "Float32"            
@@ -63,7 +63,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "Temperature1"                
-    isHidden: false                   
+    isHidden: true                   
     description: "环境温度"
     properties:
       valueType: "Float32"            
@@ -71,7 +71,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "Humidity1"                
-    isHidden: false                   
+    isHidden: true                   
     description: "环境湿度"
     properties:
       valueType: "Uint16"            
@@ -79,7 +79,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "Pressure"                
-    isHidden: false                  
+    isHidden: true                  
     description: "大气气压"
     properties:
       valueType: "Float32"            
@@ -87,7 +87,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "Rainfall10min"                
-    isHidden: false                   
+    isHidden: true                   
     description: "雨量"
     properties:
       valueType: "Float32"            
@@ -95,7 +95,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "SolarRadiation"                
-    isHidden: false                   
+    isHidden: true                   
     description: "光照强度"
     properties:
       valueType: "Uint16"            
@@ -103,7 +103,7 @@ deviceResources:
       units: ""                      
       defaultValue: "0"   
   - name: "lastDataTimestamp"                       # 上次收到数据的时间戳
-    isHidden: false
+    isHidden: true
     description: "上次收到数据的系统时间(Unix 纳秒）"
     properties:
       valueType: "Int64"                            # 64 位整数，纳秒级
@@ -111,7 +111,7 @@ deviceResources:
       units: "ns"
       defaultValue: "0"
   - name: "state"
-    isHidden: false
+    isHidden: true
     description: "传感器运行状态(0=正常,1=故障)"
     properties:
       valueType: "Uint8"
@@ -119,7 +119,7 @@ deviceResources:
       units: "code"
       defaultValue: "0"
   - name: "period"
-    isHidden: false
+    isHidden: true
     description: "上报周期（秒）"
     properties:
       valueType: "Uint16"  
@@ -135,7 +135,7 @@ deviceResources:
       units: "s"
       defaultValue: "0"
   - name: "reset_ctl"               
-    isHidden: false                   
+    isHidden: true                   
     description: "复位设置响应"
     properties:
       valueType: "String"            
@@ -143,7 +143,7 @@ deviceResources:
       units: ""                      
       defaultValue: "" 
   - name: "timestamp"               
-    isHidden: false                   
+    isHidden: true                   
     description: "时间查询响应"
     properties:
       valueType: "String"            
@@ -181,7 +181,23 @@ deviceResources:
       valueType: "Int8"    
       readWrite: "W"       
       units: ""
-      defaultValue: "0"    
+      defaultValue: "0"   
+  - name: "topologyDiagramQuery"   # 路由参数查询，查询所有拓扑信息
+    isHidden: true
+    description: "0未开启 1查询全部通用参数"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"        
+      units: ""            
+      defaultValue: "0"     
+  - name: "topologyDiagram"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
+    isHidden: true
+    description: "任意 JSON 对象"
+    properties:
+      valueType: "Object"    
+      readWrite: "R"        
+      units: ""            
+      defaultValue: "{}"     
 deviceCommands:
   -
     name: "Command_Time_Parameter_Query"
@@ -207,3 +223,34 @@ deviceCommands:
     isHidden: false
     resourceOperations:
       - { deviceResource: "Monitoring_Data_Query", defaultValue: "0" }
+  -
+    name: "Command_topologyDiagramQuery"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "topologyDiagramQuery", defaultValue: "0" }
+  -
+    name: "Resource_topologyDiagram"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "topologyDiagram", defaultValue: "0" }
+  -
+    name: "Resource_sinkNode"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "eid", defaultValue: "238A08411011" }
+      - { deviceResource: "BatteryVoltage", defaultValue: "0" }
+      - { deviceResource: "ElectricCurrent", defaultValue: "0" }
+      - { deviceResource: "Temperature", defaultValue: "0" }
+      - { deviceResource: "10minAvgWindSpeed", defaultValue: "0" }
+      - { deviceResource: "10minAvgWindDirection", defaultValue: "0" }
+      - { deviceResource: "MaxWindSpeed", defaultValue: "0" }
+      - { deviceResource: "Temperature1", defaultValue: "0" }
+      - { deviceResource: "Humidity1", defaultValue: "0" }
+      - { deviceResource: "Pressure", defaultValue: "0" }
+      - { deviceResource: "Rainfall10min", defaultValue: "0" }
+      - { deviceResource: "SolarRadiation", defaultValue: "0" }
+      - { deviceResource: "lastDataTimestamp", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }

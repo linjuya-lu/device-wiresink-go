@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"strings"
 )
 
 type ParamKey struct {
@@ -29,7 +30,8 @@ var paramMap = map[ParamKey]ParamInfo{
 	{0b000, 0b00000000101}: {"Temperature", "℃", 4, "float32", parseFloat32},
 	{0b000, 0b00000000110}: {"AmountOfSubstance", "mol", 4, "float32", parseFloat32},
 	{0b000, 0b00000000111}: {"LuminousIntensity", "cd", 4, "float32", parseFloat32},
-
+	//拓扑解析
+	{0b000, 0b00000001000}: {"topologyDiagram", "", -1, "", parseTopo},
 	// 状态量 & 扩展
 	{0b000, 0b00000011100}: {"HeartbeatStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000011101}: {"BatteryRemaining", "%", 2, "uint16", parseUint16},
@@ -385,4 +387,41 @@ func parseInt16(data []byte) (any, error) {
 	// 将 uint16 按位模式转换为 int16
 	val := int16(u)
 	return val, nil
+}
+
+func parseTopo(data []byte) (any, error) {
+	// 1. 将十六进制字节转成 ASCII 字符串
+	asciiStr := string(data)
+
+	// 2. 用 $ 分隔多个节点
+	nodes := strings.Split(asciiStr, "$")
+
+	var topoList []NodeTopology
+
+	for _, node := range nodes {
+		if node == "" {
+			continue // 跳过空
+		}
+		// 3. 用 , 分隔节点字段
+		parts := strings.Split(node, ",")
+		if len(parts) != 4 {
+			return nil, fmt.Errorf("节点格式错误: %s", node)
+		}
+
+		// 4. 填充结构体
+		topology := NodeTopology{
+			EID:    parts[0],
+			Type:   parts[1],
+			State:  parts[2],
+			Parent: parts[3],
+		}
+		topoList = append(topoList, topology)
+	}
+
+	// 5. 更新全局 TopoList（加写锁）
+	topoMu.Lock()
+	TopoList = topoList
+	topoMu.Unlock()
+
+	return topoList, nil
 }

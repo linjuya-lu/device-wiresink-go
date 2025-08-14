@@ -158,9 +158,11 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 						log.Printf("❌ 参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
 					} else {
 						// 写入运行时值表
-						config.SetDeviceValue(deviceName, info.Name, val)
-						resourceValues[info.Name] = val
-						log.Printf("✅ 写入值 %s.%s = %v %s", deviceName, info.Name, val, info.Unit)
+						if val != nil {
+							config.SetDeviceValue(deviceName, info.Name, val)
+							resourceValues[info.Name] = val
+							log.Printf("✅ 写入值 %s.%s = %v %s", deviceName, info.Name, val, info.Unit)
+						}
 					}
 				} else {
 					log.Printf("未找到参数类型信息 type=0x%X", paramType)
@@ -177,7 +179,6 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			fmt.Printf("cb=%v, len(resourceValues)=%d\n", cb, len(resourceValues))
 
 			if cb != nil && len(resourceValues) > 0 {
-				fmt.Printf("11111111112222222222222")
 				cb(deviceName, "AsyncReporting", resourceValues)
 			}
 			// 若未完全解析，跳过后续逻辑

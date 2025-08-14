@@ -5,9 +5,11 @@ deviceList:
     labels:
       - temp-humi
     protocols:
-      custom:
-        location: /dev/ttyUSB0
-        baudRate: "115200"
+      mqtt:
+        Schema: "tcp"
+        Host: "172.16.19.101"
+        Port: "1883"
+        ClientId: "lora-agent-client"
   - name: "Friendcom-Water-Level-Sensor"
     profileName: "Friendcom-Water-Level-Profile"
     description: "友讯达超声波水位传感器"

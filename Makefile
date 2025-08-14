@@ -11,7 +11,7 @@ MICROSERVICES=cmd/device-wiresink
 
 ARCH=$(shell uname -m)
 
-DOCKERS=docker_device_lpmp_go
+DOCKERS=docker_device_wiresink_go
 .PHONY: $(DOCKERS)
 
 VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
@@ -22,7 +22,7 @@ ifeq ($(ENABLE_FULL_RELRO), true)
 	ENABLE_FULL_RELRO_GOFLAGS = -bindnow
 endif
 
-GOFLAGS=-ldflags "-s -w -X github.com/edgexfoundry/device-virtual-go.Version=$(VERSION) \
+GOFLAGS=-ldflags "-s -w -X github.com/edgexfoundry/device-wiresink-go.Version=$(VERSION) \
                   -X github.com/edgexfoundry/device-sdk-go/v4/internal/common.SDKVersion=$(SDKVERSION) \
                   $(ENABLE_FULL_RELRO_GOFLAGS)" \
                    -trimpath -mod=readonly
@@ -67,12 +67,12 @@ clean:
 
 docker: $(DOCKERS)
 
-docker_device_lpmp_go:
+docker_device_wiresink_go:
 	docker build \
 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
 		--label "git_sha=$(GIT_SHA)" \
-		-t edgexfoundry/device-virtual:$(GIT_SHA) \
-		-t edgexfoundry/device-virtual:$(VERSION)-dev \
+		-t edgexfoundry/device-wiresink:$(GIT_SHA) \
+		-t edgexfoundry/device-wiresink:$(VERSION)-dev \
 		.
 
 docker-nats:

@@ -1,7 +1,3 @@
-# bitbucket.org/bertimus9/systemstat v0.0.0-20180207000608-0eeff89b0690
-## explicit
-# github.com/BurntSushi/toml v0.3.1
-## explicit
 # github.com/Microsoft/go-winio v0.6.2
 ## explicit; go 1.21
 github.com/Microsoft/go-winio
@@ -12,25 +8,16 @@ github.com/Microsoft/go-winio/pkg/guid
 # github.com/OneOfOne/xxhash v1.2.8
 ## explicit; go 1.11
 github.com/OneOfOne/xxhash
-# github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
-## explicit
 # github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2
 ## explicit; go 1.13
 github.com/asaskevich/govalidator
-# github.com/cenkalti/backoff v2.2.1+incompatible
-## explicit
 # github.com/cenkalti/backoff/v4 v4.3.0
 ## explicit; go 1.18
 github.com/cenkalti/backoff/v4
-# github.com/creack/goselect v0.1.3
-## explicit; go 1.13
-github.com/creack/goselect
 # github.com/eclipse/paho.mqtt.golang v1.5.0
 ## explicit; go 1.20
 github.com/eclipse/paho.mqtt.golang
 github.com/eclipse/paho.mqtt.golang/packets
-# github.com/edgexfoundry/device-sdk-go v1.4.0
-## explicit; go 1.15
 # github.com/edgexfoundry/device-sdk-go/v4 v4.0.0
 ## explicit; go 1.23
 github.com/edgexfoundry/device-sdk-go/v4/internal/application
@@ -50,11 +37,6 @@ github.com/edgexfoundry/device-sdk-go/v4/pkg/interfaces
 github.com/edgexfoundry/device-sdk-go/v4/pkg/models
 github.com/edgexfoundry/device-sdk-go/v4/pkg/service
 github.com/edgexfoundry/device-sdk-go/v4/pkg/startup
-# github.com/edgexfoundry/device-virtual-go v1.3.1
-## explicit; go 1.15
-github.com/edgexfoundry/device-virtual-go
-# github.com/edgexfoundry/go-mod-bootstrap v0.0.60
-## explicit; go 1.15
 # github.com/edgexfoundry/go-mod-bootstrap/v4 v4.0.3
 ## explicit; go 1.23
 github.com/edgexfoundry/go-mod-bootstrap/v4/bootstrap
@@ -76,15 +58,11 @@ github.com/edgexfoundry/go-mod-bootstrap/v4/bootstrap/utils
 github.com/edgexfoundry/go-mod-bootstrap/v4/bootstrap/zerotrust
 github.com/edgexfoundry/go-mod-bootstrap/v4/config
 github.com/edgexfoundry/go-mod-bootstrap/v4/di
-# github.com/edgexfoundry/go-mod-configuration v0.0.8
-## explicit; go 1.15
 # github.com/edgexfoundry/go-mod-configuration/v4 v4.0.1
 ## explicit; go 1.23
 github.com/edgexfoundry/go-mod-configuration/v4/configuration
 github.com/edgexfoundry/go-mod-configuration/v4/internal/pkg/keeper
 github.com/edgexfoundry/go-mod-configuration/v4/pkg/types
-# github.com/edgexfoundry/go-mod-core-contracts v0.1.115
-## explicit; go 1.15
 # github.com/edgexfoundry/go-mod-core-contracts/v4 v4.0.1
 ## explicit; go 1.23
 github.com/edgexfoundry/go-mod-core-contracts/v4/clients
@@ -109,15 +87,11 @@ github.com/edgexfoundry/go-mod-messaging/v4/internal/pkg/nats/interfaces
 github.com/edgexfoundry/go-mod-messaging/v4/internal/pkg/nats/jetstream
 github.com/edgexfoundry/go-mod-messaging/v4/messaging
 github.com/edgexfoundry/go-mod-messaging/v4/pkg/types
-# github.com/edgexfoundry/go-mod-registry v0.1.26
-## explicit; go 1.15
 # github.com/edgexfoundry/go-mod-registry/v4 v4.0.1
 ## explicit; go 1.23
 github.com/edgexfoundry/go-mod-registry/v4/internal/pkg/keeper
 github.com/edgexfoundry/go-mod-registry/v4/pkg/types
 github.com/edgexfoundry/go-mod-registry/v4/registry
-# github.com/edgexfoundry/go-mod-secrets v0.0.26
-## explicit; go 1.15
 # github.com/edgexfoundry/go-mod-secrets/v4 v4.0.1
 ## explicit; go 1.23
 github.com/edgexfoundry/go-mod-secrets/v4/internal/pkg/openbao
@@ -127,8 +101,6 @@ github.com/edgexfoundry/go-mod-secrets/v4/pkg/token/fileioperformer
 github.com/edgexfoundry/go-mod-secrets/v4/pkg/token/runtimetokenprovider
 github.com/edgexfoundry/go-mod-secrets/v4/pkg/types
 github.com/edgexfoundry/go-mod-secrets/v4/secrets
-# github.com/edsrzf/mmap-go v1.0.0
-## explicit
 # github.com/fsnotify/fsnotify v1.7.0
 ## explicit; go 1.17
 github.com/fsnotify/fsnotify
@@ -150,8 +122,6 @@ github.com/go-jose/go-jose/v4
 github.com/go-jose/go-jose/v4/cipher
 github.com/go-jose/go-jose/v4/json
 github.com/go-jose/go-jose/v4/jwt
-# github.com/go-kit/kit v0.8.0
-## explicit
 # github.com/go-kit/log v0.2.1
 ## explicit; go 1.17
 github.com/go-kit/log
@@ -246,24 +216,12 @@ github.com/gorilla/securecookie
 # github.com/gorilla/websocket v1.5.3
 ## explicit; go 1.12
 github.com/gorilla/websocket
-# github.com/hashicorp/consul/api v1.1.0
-## explicit; go 1.12
 # github.com/hashicorp/errwrap v1.1.0
 ## explicit
 github.com/hashicorp/errwrap
-# github.com/hashicorp/go-cleanhttp v0.5.1
-## explicit
-# github.com/hashicorp/go-immutable-radix v1.0.0
-## explicit
 # github.com/hashicorp/go-multierror v1.1.1
 ## explicit; go 1.13
 github.com/hashicorp/go-multierror
-# github.com/hashicorp/go-rootcerts v1.0.0
-## explicit
-# github.com/hashicorp/golang-lru v0.5.1
-## explicit
-# github.com/hashicorp/serf v0.8.2
-## explicit
 # github.com/josharian/intern v1.0.0
 ## explicit; go 1.5
 github.com/josharian/intern
@@ -309,13 +267,9 @@ github.com/michaelquigley/pfxlog
 # github.com/miekg/pkcs11 v1.1.1
 ## explicit; go 1.12
 github.com/miekg/pkcs11
-# github.com/mitchellh/consulstructure v0.0.0-20190329231841-56fdc4d2da54
-## explicit
 # github.com/mitchellh/copystructure v1.2.0
 ## explicit; go 1.15
 github.com/mitchellh/copystructure
-# github.com/mitchellh/go-homedir v1.0.0
-## explicit
 # github.com/mitchellh/go-ps v1.0.0
 ## explicit; go 1.13
 github.com/mitchellh/go-ps
@@ -486,8 +440,6 @@ github.com/parallaxsecond/parsec-client-go/interface/operations/psaverifymessage
 github.com/parallaxsecond/parsec-client-go/interface/requests
 github.com/parallaxsecond/parsec-client-go/parsec
 github.com/parallaxsecond/parsec-client-go/parsec/algorithm
-# github.com/pelletier/go-toml v1.9.3
-## explicit; go 1.12
 # github.com/pkg/errors v0.9.1
 ## explicit
 github.com/pkg/errors
@@ -497,8 +449,6 @@ github.com/power-devops/perfstat
 # github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475
 ## explicit
 github.com/rcrowley/go-metrics
-# github.com/remyoudompheng/bigfft v0.0.0-20190321074620-2f0d2b0e0001
-## explicit; go 1.12
 # github.com/shirou/gopsutil/v3 v3.24.5
 ## explicit; go 1.18
 github.com/shirou/gopsutil/v3/common
@@ -567,10 +517,6 @@ github.com/zitadel/oidc/v2/pkg/http
 github.com/zitadel/oidc/v2/pkg/oidc
 github.com/zitadel/oidc/v2/pkg/oidc/grants/tokenexchange
 github.com/zitadel/oidc/v2/pkg/strings
-# go.bug.st/serial.v1 v0.0.0-20191202182710-24a6610f0541
-## explicit
-go.bug.st/serial.v1
-go.bug.st/serial.v1/unixutils
 # go.mongodb.org/mongo-driver v1.17.0
 ## explicit; go 1.18
 go.mongodb.org/mongo-driver/bson
@@ -777,35 +723,9 @@ google.golang.org/protobuf/types/known/timestamppb
 gopkg.in/go-jose/go-jose.v2
 gopkg.in/go-jose/go-jose.v2/cipher
 gopkg.in/go-jose/go-jose.v2/json
-# gopkg.in/yaml.v2 v2.4.0
-## explicit; go 1.15
 # gopkg.in/yaml.v3 v3.0.1
 ## explicit
 gopkg.in/yaml.v3
-# modernc.org/b v1.0.0
-## explicit
-# modernc.org/db v1.0.0
-## explicit
-# modernc.org/file v1.0.0
-## explicit
-# modernc.org/fileutil v1.0.0
-## explicit
-# modernc.org/golex v1.0.0
-## explicit
-# modernc.org/internal v1.0.0
-## explicit
-# modernc.org/lldb v1.0.0
-## explicit
-# modernc.org/mathutil v1.0.0
-## explicit
-# modernc.org/ql v1.0.0
-## explicit
-# modernc.org/sortutil v1.0.0
-## explicit
-# modernc.org/strutil v1.0.0
-## explicit
-# modernc.org/zappy v1.0.0
-## explicit
 # nhooyr.io/websocket v1.8.17
 ## explicit; go 1.19
 nhooyr.io/websocket

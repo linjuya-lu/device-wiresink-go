@@ -91,7 +91,7 @@ func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 
 func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
 	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -266,6 +266,43 @@ func (d *WireSinkDriver) handleGeneParaQuery(deviceName string) error {
 	}
 	//发送命令
 	eidStr, _ = eidValue.(string)
+	relay.SendFrame(eidStr, frame)
+	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	return nil
+}
+
+func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
+	d.lc.Infof("开始处理复位命令: %s", deviceName)
+	// 获取设备的 EID 字符串
+	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
+	if !ok {
+		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
+		d.lc.Error(err.Error())
+		return err
+	}
+
+	eidStr := "238A0841D828"
+	// 解码成 6 字节
+	eidBytes, err := hex.DecodeString(eidStr)
+	if err != nil {
+		err = fmt.Errorf("EID[%s] 转十六进制失败: %w", eidStr, err)
+		d.lc.Error(err.Error())
+		return err
+	}
+	if len(eidBytes) != 6 {
+		err = fmt.Errorf("EID 长度不对，期望 6 字节，实际 %d 字节", len(eidBytes))
+		d.lc.Error(err.Error())
+		return err
+	}
+	var sensorID [6]byte
+	copy(sensorID[:], eidBytes)
+	//构建ID查询帧
+	frame, err := frameparser.BuildGeneralParamQueryFrame(sensorID, 0x0800)
+	if err != nil {
+		return fmt.Errorf("构造全部通用参数查询失败: %w", err)
+	}
+	eidStr, _ = eidValue.(string)
+	//发送命令
 	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil

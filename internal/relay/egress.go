@@ -40,5 +40,5 @@ func SendFrame(dstAddr string, payload []byte) {
 	// 发送
 	hexStr1 := strings.ToUpper(hex.EncodeToString(payload))
 
-	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/core/command/sink", eidStr, hexStr1)
+	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", eidStr, hexStr1)
 }
