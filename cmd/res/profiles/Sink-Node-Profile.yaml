@@ -191,7 +191,7 @@ deviceResources:
       units: ""            
       defaultValue: "0"     
   - name: "topologyDiagram"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
-    isHidden: true
+    isHidden: false
     description: "任意 JSON 对象"
     properties:
       valueType: "Object"    

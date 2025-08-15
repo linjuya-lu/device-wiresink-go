@@ -1,19 +1,3 @@
-#
-# Copyright (c) 2020-2021 IOTech Ltd
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
 ARG BASE=golang:1.23-alpine3.20
 FROM ${BASE} AS builder
 
@@ -22,7 +6,7 @@ ARG ALPINE_PKG_EXTRA=""
 ARG ADD_BUILD_TAGS=""
 
 # set the working directory
-WORKDIR /device-virtual-go
+WORKDIR /device-wiresink-go
 
 # Install our build time packages.
 RUN apk add --update --no-cache ${ALPINE_PKG_BASE} ${ALPINE_PKG_EXTRA}
@@ -47,11 +31,11 @@ RUN apk add --update --no-cache dumb-init
 RUN apk --no-cache upgrade
 
 WORKDIR /
-COPY --from=builder /device-virtual-go/Attribution.txt /
-COPY --from=builder /device-virtual-go/LICENSE /
-COPY --from=builder /device-virtual-go/cmd /
+COPY --from=builder /device-wiresink-go/Attribution.txt /
+COPY --from=builder /device-wiresink-go/LICENSE /
+COPY --from=builder /device-wiresink-go/cmd /
 
-EXPOSE 59900
+EXPOSE 59910
 
-ENTRYPOINT ["/device-virtual"]
+ENTRYPOINT ["/device-wiresink"]
 CMD ["-cp=keeper.http://edgex-core-keeper:59890", "--registry"]

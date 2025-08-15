@@ -60,9 +60,7 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 		CommandValues: cvs,
 	}
 
-	// 推送到 SDK 异步通道
 	d.asyncCh <- asyncValues
-
 	d.lc.Infof("AsyncValues pushed: device=%s source=%s count=%d",
 		deviceName, sourceName, len(cvs))
 }

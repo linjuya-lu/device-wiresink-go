@@ -44,34 +44,68 @@ func BuildMonitoringDataQueryFrame1(sensorID [6]byte) ([]byte, error) {
 // - sensorID: 6 字节传感器ID
 // - paramType14: 参数类型（14bit，见附录D的编码），高于 14bit 的位会被丢弃
 // 返回：完整报文（含 CRC16）
+// func BuildGeneralParamQueryFrame(sensorID [6]byte, paramType14 uint16) ([]byte, error) {
+// 	const (
+// 		packetType      = 0x04 // 3bit = 100b, 控制报文
+// 		ctrlTypeMonitor = 0x02 // 7bit，上面代码一致
+// 		dataCount       = 0x01 // 4bit，参量个数=1
+// 		fragInd         = 0    // 1bit，未分片
+// 		requestSetFlag  = 0    // 1bit，查询
+// 	)
+
+// 	buf := make([]byte, 0, 6+1+1+2+2+4+2)
+// 	buf = append(buf, sensorID[:]...)
+
+// 	// head：DataLen(4) | FragInd(1) | PacketType(3)
+// 	head := byte((dataCount&0x0F)<<4) |
+// 		byte((fragInd&0x01)<<3) |
+// 		byte(packetType&0x07)
+// 	buf = append(buf, head)
+
+// 	// ctrlByte：CtrlType(7) | RequestSetFlag(1)
+// 	ctrlByte := byte((ctrlTypeMonitor&0x7F)<<1) |
+// 		byte(requestSetFlag&0x01)
+// 	buf = append(buf, ctrlByte)
+
+// 	// 参数列表：这里只装 1 个参数（查询时值默认 0）
+// 	paramEntry := EncodeParamEntry(paramType14, 0 /*lenFlag=0*/, nil /*自动填4字节0*/)
+// 	buf = append(buf, paramEntry...)
+
+// 	// CRC16（与你现有 CRC16 实现保持一致；示例为 BigEndian 放入）
+// 	crc := CRC16(buf)
+// 	var crcB [2]byte
+// 	binary.BigEndian.PutUint16(crcB[:], crc)
+// 	buf = append(buf, crcB[:]...)
+
+// 	return buf, nil
+// }
+
+// BuildGeneralParamQueryFrame 构造“查询 1 个参数”控制报文（参数列表固定为 0x20 0x00）。
 func BuildGeneralParamQueryFrame(sensorID [6]byte, paramType14 uint16) ([]byte, error) {
 	const (
 		packetType      = 0x04 // 3bit = 100b, 控制报文
-		ctrlTypeMonitor = 0x02 // 7bit，上面代码一致
+		ctrlTypeMonitor = 0x02 // 7bit
 		dataCount       = 0x01 // 4bit，参量个数=1
 		fragInd         = 0    // 1bit，未分片
 		requestSetFlag  = 0    // 1bit，查询
 	)
 
-	buf := make([]byte, 0, 6+1+1+2+2+4+2)
+	// 预分配：6(SensorID)+1(head)+1(ctrl)+2(参数列表固定)+2(CRC)
+	buf := make([]byte, 0, 6+1+1+2+2)
 	buf = append(buf, sensorID[:]...)
 
 	// head：DataLen(4) | FragInd(1) | PacketType(3)
-	head := byte((dataCount&0x0F)<<4) |
-		byte((fragInd&0x01)<<3) |
-		byte(packetType&0x07)
+	head := byte((dataCount&0x0F)<<4) | byte((fragInd&0x01)<<3) | byte(packetType&0x07)
 	buf = append(buf, head)
 
 	// ctrlByte：CtrlType(7) | RequestSetFlag(1)
-	ctrlByte := byte((ctrlTypeMonitor&0x7F)<<1) |
-		byte(requestSetFlag&0x01)
+	ctrlByte := byte((ctrlTypeMonitor&0x7F)<<1) | byte(requestSetFlag&0x01)
 	buf = append(buf, ctrlByte)
 
-	// 参数列表：这里只装 1 个参数（查询时值默认 0）
-	paramEntry := EncodeParamEntry(paramType14, 0 /*lenFlag=0*/, nil /*自动填4字节0*/)
-	buf = append(buf, paramEntry...)
+	// 参数列表：固定为 0x20 0x00（忽略 paramType14）
+	buf = append(buf, 0x20, 0x00)
 
-	// CRC16（与你现有 CRC16 实现保持一致；示例为 BigEndian 放入）
+	// CRC16（与你的实现保持一致；示例为 BigEndian 放入）
 	crc := CRC16(buf)
 	var crcB [2]byte
 	binary.BigEndian.PutUint16(crcB[:], crc)

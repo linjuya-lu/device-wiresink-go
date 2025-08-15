@@ -95,8 +95,8 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 	}
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
-		// 如果是路由信息，直接从全局 topoList 取数据，并 JSON 序列化
-		if resName == "Routing_Information" {
+		// 如果是路由信息，取数据，序列化
+		if resName == "topologyDiagram" {
 			topo := config.GetTopoList() // []config.NodeTopology
 			fmt.Printf("topo:%s", topo)
 			// 序列化成 CommandValue
@@ -111,7 +111,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
-		// 一般资源从 config 缓存读取
+		// 一般资源从 config 读取
 		val, exists := values[resName]
 		if !exists {
 			return nil, fmt.Errorf("设备 %s 上未找到资源 %s 的值", deviceName, resName)
@@ -211,9 +211,9 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 	if err != nil {
 		return fmt.Errorf("获取设备 %s 失败: %w", deviceName, err)
 	}
-	// 从 Device 中取出 Profile 名称
+	// 取出 Profile 名称
 	profileName := dev.ProfileName
-	// 获取对应的 DeviceProfile
+	// 获取DeviceProfile
 	prof, err := d.sdk.GetProfileByName(profileName)
 	if err != nil {
 		return fmt.Errorf("获取设备配置文件 %s 失败: %w", profileName, err)

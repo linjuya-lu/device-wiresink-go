@@ -1,17 +1,15 @@
 package frameparser
 
-// 封装 7.6 节 传感器ID查询/设置报文
-
 import (
 	"encoding/binary"
 	"fmt"
 )
 
 // 控制报文类型：传感器 ID 查询/设置（7bit），按协议附录B 定义
-const ctrlTypeSensorID = 0x05 // 假设值为 7，如有具体值请替换
+const ctrlTypeSensorID = 0x05
 
-// BuildSensorIDFrame 构造 “传感器ID 查询/设置” 控制报文。
-// sensorID: 原始 6 字节传感器 ID。
+// 封装 7.6 节 传感器ID查询/设置报文
+// sensorID: EID
 // requestSetFlag: 0=查询；1=设置。
 // newID: 当 requestSetFlag=1 时，填入新的 6 字节 ID；否则可传空零值 [6]byte{}。
 func BuildSensorIDFrame(sensorID [6]byte, requestSetFlag byte, newID [6]byte) ([]byte, error) {
@@ -34,7 +32,7 @@ func BuildSensorIDFrame(sensorID [6]byte, requestSetFlag byte, newID [6]byte) ([
 	buf = append(buf, ctrlByte)
 	// 报文内容：NewSensorID (6 字节)
 	buf = append(buf, newID[:]...)
-	// 校验位：CRC16 前面所有字节，大端序追加 2 字节
+	// 校验位：CRC16
 	crc := CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)

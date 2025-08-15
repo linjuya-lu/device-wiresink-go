@@ -10,14 +10,9 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
 )
 
-// handleResetCommand 封装了对 Reset_Set 资源写入后的完整处理：
-// 1. 获取设备 EID
-// 2. 校验并解码为 6 字节 sensorID
-// 3. 构建复位帧
-// 4. 通过串口层发送 AT+DTXSTR 命令
 func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 	d.lc.Infof("开始处理时间设置命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	// 获取 EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -50,13 +45,13 @@ func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 	// 发送命令
 	eidStr, _ = eidValue.(string)
 	relay.SendFrame(eidStr, reqFrame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送时间设置命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	// 获取EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -90,7 +85,7 @@ func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 }
 
 func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
-	d.lc.Infof("开始处理复位命令: %s", deviceName)
+	d.lc.Infof("开始处理时间参数查询命令: %s", deviceName)
 
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
@@ -119,13 +114,13 @@ func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
 	// 发送命令
 	eidStr, _ = eidValue.(string)
 	relay.SendFrame(eidStr, reqFrame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送时间参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleIdQuery(deviceName string) error {
-	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	d.lc.Infof("开始处理EID查询命令: %s", deviceName)
+	// 获取EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -156,13 +151,13 @@ func (d *WireSinkDriver) handleIdQuery(deviceName string) error {
 	//发送命令
 	eidStr, _ = eidValue.(string)
 	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送EID查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
-	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	d.lc.Infof("开始处理检测数据查询命令: %s", deviceName)
+	// 获取EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -193,13 +188,13 @@ func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
 	eidStr, _ = eidValue.(string)
 	//发送命令
 	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送检测数据查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleIdAlarmParaQuery(deviceName string) error {
-	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	d.lc.Infof("开始处理告警参数查询命令: %s", deviceName)
+	// 获取EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -230,13 +225,13 @@ func (d *WireSinkDriver) handleIdAlarmParaQuery(deviceName string) error {
 	// 发送命令
 	eidStr, _ = eidValue.(string)
 	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送告警参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleGeneParaQuery(deviceName string) error {
-	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	d.lc.Infof("开始处理通用参数查询命令: %s", deviceName)
+	// 获取EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -267,13 +262,13 @@ func (d *WireSinkDriver) handleGeneParaQuery(deviceName string) error {
 	//发送命令
 	eidStr, _ = eidValue.(string)
 	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送通用参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
-	d.lc.Infof("开始处理复位命令: %s", deviceName)
-	// 获取设备的 EID 字符串
+	d.lc.Infof("开始处拓扑查询命令: %s", deviceName)
+	// 获取EID
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
@@ -299,11 +294,11 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 	//构建ID查询帧
 	frame, err := frameparser.BuildGeneralParamQueryFrame(sensorID, 0x0800)
 	if err != nil {
-		return fmt.Errorf("构造全部通用参数查询失败: %w", err)
+		return fmt.Errorf("构造拓扑查询失败: %w", err)
 	}
 	eidStr, _ = eidValue.(string)
 	//发送命令
 	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
+	d.lc.Infof("已发送拓扑查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }

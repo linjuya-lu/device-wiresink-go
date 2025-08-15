@@ -7,7 +7,7 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/config"
 )
 
-// StartControlListener 监听某设备（控制命令）的变化。
+// 监听某设备（控制命令）的变化。
 // deviceName: 逻辑设备名；resourceName: 要监控的控制资源名；
 // pollInterval: 轮询间隔；
 // handler: 新值到来时执行的回调。
@@ -20,22 +20,21 @@ func StartControlListener(deviceName, resourceName string, pollInterval time.Dur
 		for range ticker.C {
 			vals, ok := config.GetDeviceValues(deviceName)
 			if !ok {
-				// 设备还没初始化好
+				// 还没初始化
 				continue
 			}
 			cur, exists := vals[resourceName]
 			if !exists {
-				// 这个资源不存在
+				// 资源不存在
 				continue
 			}
 			// 值发生变化，且与上次不同
 			if cur != last {
 				last = cur
 				log.Printf("[ControlListener] %s.%s 变为 %v", deviceName, resourceName, cur)
-				// 调用用户回调
+				// 回调
 				handler(cur)
-
-				// 处理完以后，把值“清回”0，等待下次再次写入触发
+				// 值“清回”0，等待下次再次写入触发
 				config.SetDeviceValue(deviceName, resourceName, 0)
 				log.Printf("[ControlListener] %s.%s 已重置为 0", deviceName, resourceName)
 			}

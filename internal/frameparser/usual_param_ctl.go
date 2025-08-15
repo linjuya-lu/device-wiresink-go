@@ -1,7 +1,5 @@
 package frameparser
 
-// 封装 7.2 节 传感器通用参数查询/设置报文
-
 import (
 	"bytes"
 	"encoding/binary"
@@ -12,12 +10,12 @@ import (
 
 const (
 	// CtrlType: 通用参数查询/设置 (7bit)，协议附录B 定义
-	ctrlTypeGeneralParams = 0x03 // TODO: 请替换为协议中实际的 CtrlType
+	ctrlTypeGeneralParams = 0x03
 	// 最大支持一次下发/查询的参数数量
 	maxParams = 16
 )
 
-// BuildGeneralParamFrame 构造“通用参数查询/设置”报文。
+// 封装 7.2 节 传感器通用参数查询/设置报文
 //
 //	sensorID:        6 字节传感器 ID
 //	requestSetFlag:  0 = 查询所有参数（此时 paramsMap 应传 nil 或 empty，DataLen=0xF 且无 ParameterList）
@@ -25,7 +23,7 @@ const (
 //	paramsOrder:     设 requestSetFlag=1 时，按此顺序列出要查询/设置的参数名
 //	paramsMap:       map[参数名]→[]byte（对应参数的数据内容）
 //
-// 返回：完整帧字节切片（含 CRC16）
+// 返回：完整帧字节切片
 func BuildGeneralParamFrame(sensorID [6]byte, requestSetFlag byte, paramsOrder []string, paramsMap map[string][]byte) ([]byte, error) {
 	// 确定 DataLen 和 ParameterList
 	var dataLen byte
@@ -57,7 +55,7 @@ func BuildGeneralParamFrame(sensorID [6]byte, requestSetFlag byte, paramsOrder [
 			}
 			entry.Data = make([]byte, entry.Length)
 			copy(entry.Data, val)
-			// 将 head16(小端) 写入
+			// 将 head16 写入
 			le := make([]byte, 2)
 			binary.LittleEndian.PutUint16(le, entry.Head16)
 			buf.Write(le)
@@ -71,7 +69,7 @@ func BuildGeneralParamFrame(sensorID [6]byte, requestSetFlag byte, paramsOrder [
 	head := byte((dataLen&0x0F)<<4) | byte(packetTypeControl&0x07)
 	// 构建 CtrlType+RequestSetFlag(1b)
 	ctrlByte := byte((ctrlTypeGeneralParams&0x7F)<<1) | (requestSetFlag & 0x01)
-	// 汇总所有字段，准备计算 CRC
+	// 汇总所有字段
 	buf := &bytes.Buffer{}
 	buf.Write(sensorID[:])
 	buf.WriteByte(head)
@@ -79,7 +77,7 @@ func BuildGeneralParamFrame(sensorID [6]byte, requestSetFlag byte, paramsOrder [
 	if requestSetFlag == 1 {
 		buf.Write(parameterList)
 	}
-	// 计算并追加 CRC16（大端）
+	// 追加CRC16
 	crc := CRC16(buf.Bytes())
 	crcb := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcb, crc)
@@ -91,16 +89,16 @@ func BuildGeneralParamFrame(sensorID [6]byte, requestSetFlag byte, paramsOrder [
 //
 //	sensorID: 原始 6 字节传感器 ID。
 //
-// 返回值：完整报文字节 slice（含 CRC16），或出错。
+// 返回值：完整报文字节，或出错。
 func BuildParameterQueryFrame(sensorID [6]byte) ([]byte, error) {
 	const (
 		packetType     = 0x04 // 3 bit = 100b
-		ctrlType       = 0x01 // 7 bit，协议中通用参数查询对应的 CtrlType（示例值，按文档替换）
+		ctrlType       = 0x01 // 7 bit，协议中通用参数查询对应的 CtrlType
 		dataLen        = 0x0F // 4 bit = 1111b，表示“请求所有通用参数”
 		fragInd        = 0    // 1 bit
 		requestSetFlag = 0    // 1 bit = 查询
 	)
-	// 拼前 6 字节 SensorID
+	// 拼EID
 	buf := make([]byte, 0, 6+1+1+2)
 	buf = append(buf, sensorID[:]...)
 	// head 字节：DataLen(4) | FragInd(1) | PacketType(3)
@@ -113,7 +111,7 @@ func BuildParameterQueryFrame(sensorID [6]byte) ([]byte, error) {
 		byte(requestSetFlag&0x01)
 	buf = append(buf, ctrlByte)
 	// （不带 ParameterList，因为请求所有通用参数）
-	// 计算并追加 CRC16（大端序）
+	// 追加 CRC16
 	crc := CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)

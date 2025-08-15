@@ -12,7 +12,7 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
 )
 
-// SDUCache 用于缓存分片数据，并记录最后一次确认重传次数
+// 缓存分片数据，记录最后一次确认重传次数
 type SDUCache struct {
 	SSEQ       uint8
 	expected   uint8
@@ -23,7 +23,7 @@ type SDUCache struct {
 }
 
 const (
-	// 分片最大重传次数，由传感器端根据ACK逻辑重试
+	// 分片最大重传次数
 	// maxRetransmits = 3
 	// 重组超时，超过此时间未完成拼接则丢弃并回ACK失败
 	reassembleTimeout = 20 * time.Second
@@ -31,27 +31,27 @@ const (
 
 var (
 	cacheMu sync.Mutex
-	// 使用 string 作为键，即 frame.SensorID
+	// eid作为键
 	sduCaches = make(map[string]*SDUCache)
 	// 重组后的完整 SDU 交给此通道
 	SDUCh = make(chan config.Frame, 100)
 )
 
-// ProcessFrame 处理从上层收到的 config.Frame
-// 包括提取分片头、缓存重组、ACK应答、超时丢弃
+// 处理收到的 config.Frame
+// 提取分片头、缓存重组、ACK应答、超时丢弃
 func ProcessFrame(frame config.Frame) {
 	i := 0
 	two := binary.BigEndian.Uint16(frame.Payload[i : i+2])
 	i += 2
 	SSEQ := uint8(two >> 10) // 6bit
 	sensorKey := frame.SensorID
-	// 如果未分片，直接应答ACK并输出
+	// 未分片，直接应答ACK并输出
 	if frame.FragInd == 0 {
 		sendAck(sensorKey, SSEQ, true, 0)
 		SDUCh <- frame
 		return
 	}
-	// 解析PDU头，需至少4字节
+	// 解析PDU头
 	if len(frame.Payload) < 4 {
 		fmt.Printf("PDU头太短: %d字节\n", len(frame.Payload))
 		sendAck(sensorKey, SSEQ, false, 0)
@@ -146,7 +146,7 @@ func ProcessFrame(frame config.Frame) {
 	cacheMu.Unlock()
 }
 
-// finalize 停止定时器并输出完整SDU
+// 停止定时器并输出完整SDU
 func finalize(sensorKey string, frame config.Frame) {
 	cache := sduCaches[sensorKey]
 	cache.timer.Stop()
@@ -155,13 +155,13 @@ func finalize(sensorKey string, frame config.Frame) {
 	SDUCh <- frame
 }
 
-// sendAck 构造并发送 ACK 帧：ackOK=true 则 ACK=11，否则 ACK=00
+// 构造并发送 ACK 帧：ackOK=true 则 ACK=11，否则 ACK=00
 func sendAck(sensorKey string, sseq uint8, ackOK bool, pseq uint8) {
 	var ackBits uint8
 	if ackOK {
-		ackBits = 0x3 // 二进制11
+		ackBits = 0x3
 	} else {
-		ackBits = 0x0 // 二进制00
+		ackBits = 0x0
 	}
 	// 构造 ACK 控制字段：ACK(2bit)|SSEQ(6bit)|PSEQ(7bit)
 	two := (uint16(ackBits&0x3) << 14) | (uint16(sseq&0x3F) << 8) | uint16(pseq&0x7F)

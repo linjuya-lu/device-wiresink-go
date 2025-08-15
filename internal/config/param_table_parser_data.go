@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
-	"strings"
+	"strconv"
 )
 
 type ParamKey struct {
@@ -364,7 +364,7 @@ func parsefloat32Array(data []byte) (any, error) {
 	return samples, nil
 }
 
-// parseUint16Array 将长度为 2*N 的字节切片解析为 []uint16
+// 将长度为 2*N 的字节切片解析为 []uint16
 func parseUint16Array(data []byte) (any, error) {
 	// 数据长度应为 2*N
 	if len(data)%2 != 0 {
@@ -378,7 +378,7 @@ func parseUint16Array(data []byte) (any, error) {
 	return values, nil
 }
 
-// parseInt16 将 2 字节的小端序数据解析为 int16
+// 将 2 字节的小端序数据解析为 int16
 func parseInt16(data []byte) (any, error) {
 	if len(data) != 2 {
 		return nil, fmt.Errorf("期望2字节，实际%d", len(data))
@@ -390,35 +390,106 @@ func parseInt16(data []byte) (any, error) {
 }
 
 func parseTopo(data []byte) (any, error) {
-	// 1. 将十六进制字节转成 ASCII 字符串
-	asciiStr := string(data)
+	// 形如：[6B EID][,][1B state][,][1B type][,][6B parent][$]...
+	n := len(data)
 
-	// 2. 用 $ 分隔多个节点
-	nodes := strings.Split(asciiStr, "$")
+	// 判断从 i 开始是否是一个节点模式
+	looksLikeNode := func(i int) bool {
+		// 需要 6 + 1 + 1 + 1 + 1 + 6 共 16 字节
+		if i+16 > n {
+			return false
+		}
+		return data[i+6] == 0x2C && // ','
+			data[i+8] == 0x2C && // ','
+			data[i+10] == 0x2C // ','
+	}
+
+	// 找到第一个节点起点
+	i := 0
+	for i < n && !looksLikeNode(i) {
+		i++
+	}
+	if i >= n {
+		return nil, fmt.Errorf("未找到节点起点，数据不符合约定")
+	}
 
 	var topoList []NodeTopology
 
-	for _, node := range nodes {
-		if node == "" {
-			continue // 跳过空
+	// 小工具：6字节转 12 位大写十六进制
+	toHex12 := func(b []byte) string {
+		const hexdigits = "0123456789ABCDEF"
+		dst := make([]byte, 12)
+		for j := 0; j < 6; j++ {
+			v := b[j]
+			dst[2*j] = hexdigits[v>>4]
+			dst[2*j+1] = hexdigits[v&0x0F]
 		}
-		// 3. 用 , 分隔节点字段
-		parts := strings.Split(node, ",")
-		if len(parts) != 4 {
-			return nil, fmt.Errorf("节点格式错误: %s", node)
-		}
-
-		// 4. 填充结构体
-		topology := NodeTopology{
-			EID:    parts[0],
-			Type:   parts[1],
-			State:  parts[2],
-			Parent: parts[3],
-		}
-		topoList = append(topoList, topology)
+		return string(dst)
 	}
 
-	// 5. 更新全局 TopoList（加写锁）
+	for i < n {
+		if !looksLikeNode(i) {
+			break
+		}
+		eid := data[i : i+6]
+		i += 6
+
+		if i >= n || data[i] != 0x2C {
+			return nil, fmt.Errorf("节点缺少逗号分隔(1)")
+		}
+		i++
+
+		if i >= n {
+			return nil, fmt.Errorf("节点缺少state字节")
+		}
+		stateByte := data[i]
+		i++
+
+		if i >= n || data[i] != 0x2C {
+			return nil, fmt.Errorf("节点缺少逗号分隔(2)")
+		}
+		i++
+
+		if i >= n {
+			return nil, fmt.Errorf("节点缺少type字节")
+		}
+		typeByte := data[i]
+		i++
+
+		if i >= n || data[i] != 0x2C {
+			return nil, fmt.Errorf("节点缺少逗号分隔(3)")
+		}
+		i++
+
+		if i+6 > n {
+			return nil, fmt.Errorf("节点缺少父EID字节")
+		}
+		parent := data[i : i+6]
+		i += 6
+
+		topology := NodeTopology{
+			EID:    toHex12(eid),                 // 6字节→12位HEX（大写）
+			State:  strconv.Itoa(int(stateByte)), // 单字节数值→"0"/"1"/"2"
+			Type:   strconv.Itoa(int(typeByte)),  // 同上
+			Parent: toHex12(parent),
+		}
+		topoList = append(topoList, topology)
+
+		// 可选分隔符 '$'
+		if i < n && data[i] == 0x24 { // '$'
+			i++
+			// 接着看下一个节点
+			continue
+		}
+
+		// 若紧跟另一个节点模式则继续，否则结束
+		if i < n && looksLikeNode(i) {
+			continue
+		}
+		break
+	}
+
+	// 更新全局
 	topoMu.Lock()
 	TopoList = topoList
 	topoMu.Unlock()

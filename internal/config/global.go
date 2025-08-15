@@ -2,7 +2,7 @@ package config
 
 import "sync"
 
-// 全局写入通道，传入待发送的帧数据
+// 写入通道
 var WriteChan = make(chan []byte, 100)
 
 // topoList 存储最新一批解析出的 NodeTopology 列表
