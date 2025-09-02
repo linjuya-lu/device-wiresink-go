@@ -3,6 +3,10 @@ package driver
 import (
 	"encoding/hex"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/linjuya-lu/device-wiresink-go/internal/config"
@@ -276,11 +280,10 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 		return err
 	}
 
-	eidStr := "238A0841D828"
 	// 解码成 6 字节
-	eidBytes, err := hex.DecodeString(eidStr)
+	eidBytes, err := hex.DecodeString(config.EidStr)
 	if err != nil {
-		err = fmt.Errorf("EID[%s] 转十六进制失败: %w", eidStr, err)
+		err = fmt.Errorf("EID[%s] 转十六进制失败: %w", config.EidStr, err)
 		d.lc.Error(err.Error())
 		return err
 	}
@@ -296,9 +299,143 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 	if err != nil {
 		return fmt.Errorf("构造拓扑查询失败: %w", err)
 	}
-	eidStr, _ = eidValue.(string)
+	eidStr, _ := eidValue.(string)
 	//发送命令
 	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("已发送拓扑查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
+}
+
+var (
+	mu2       sync.RWMutex
+	readyFlag int
+)
+
+func (d *WireSinkDriver) handleUpgradeQuery(deviceName string) error {
+	mu2.Lock()
+	readyFlag = 0
+	mu2.Unlock()
+	d.lc.Infof("开始处拓扑查询命令: %s", deviceName)
+
+	eidBytes, err := hex.DecodeString(config.EidStr)
+	if err != nil {
+		err = fmt.Errorf("EID[%s] 转十六进制失败: %w", config.EidStr, err)
+		d.lc.Error(err.Error())
+		return err
+	}
+	if len(eidBytes) != 6 {
+		err = fmt.Errorf("EID 长度不对，期望 6 字节，实际 %d 字节", len(eidBytes))
+		d.lc.Error(err.Error())
+		return err
+	}
+	var sensorID [6]byte
+	copy(sensorID[:], eidBytes)
+	//构建帧
+	// 升级文件路径
+	filePath := "./file/fireware.hex"
+	// 帧号
+	var frameNo byte = 1
+
+	// 生成“升级请求报文”
+	pkt, err := frameparser.BuildUpgradeRequest(config.EidStr, frameNo, filePath)
+	if err != nil {
+		fmt.Println("BuildUpgradeRequest error:", err)
+		return err
+	}
+	//发送命令
+	relay.SendFrame(config.EidStr, pkt)
+	// 等待 readyFlag 变 1，然后退出循环，但不 return
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		mu2.RLock()
+		ready := (readyFlag == 1)
+		mu2.RUnlock()
+		if ready {
+			break // 只结束循环，继续往下执行
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("等待 readyFlag 超时")
+		}
+		time.Sleep(10 * time.Millisecond) // 防止空转占满CPU
+	}
+
+	// 准备就绪，开始升级
+	d.lc.Infof("已就绪，开始升级...")
+	// 3) 读取固件并切分为 <=400B 分片
+	fw, err := readFirmwareBytes(filePath)
+	if err != nil {
+		return fmt.Errorf("读取固件失败: %w", err)
+	}
+	chunks := split400(fw)
+	if len(chunks) == 0 {
+		return fmt.Errorf("固件为空")
+	}
+
+	// 4) 循环封包并发送（Subpacket_No 从 1 递增）
+	for i, chunk := range chunks {
+		subNo := uint16(i + 1)
+
+		pkt, err := frameparser.BuildUpgradeDataPacket(config.EidStr, frameNo, subNo, chunk)
+		if err != nil {
+			return fmt.Errorf("BuildUpgradeDataPacket sub=%d 失败: %w", subNo, err)
+		}
+
+		relay.SendFrame(config.EidStr, pkt)
+
+		// ——可选：等待每片 ACK——
+		// 如果你有 per-chunk 的 ACK 机制，这里等一下（带超时）
+		// ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		// waitAck(subNo, ctx) // 自己实现：收到某处回调时标记 subNo 已确认
+		// cancel()
+	}
+
+	d.lc.Infof("全部数据包已发送：总片数=%d", len(chunks))
+	return nil
+}
+
+// 读取固件：如果是 .hex 文本（纯 HEX），会解码成字节；否则直接读二进制
+func readFirmwareBytes(path string) ([]byte, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	if strings.EqualFold(filepath.Ext(path), ".hex") {
+		// 去空白/分隔符，去前缀0x，奇数长度左补0
+		s := strings.TrimSpace(string(b))
+		var sb strings.Builder
+		sb.Grow(len(s))
+		for _, r := range s {
+			switch r {
+			case ' ', '\t', '\n', '\r', ',', ';', ':', '-':
+				// 跳过常见分隔
+			default:
+				sb.WriteRune(r)
+			}
+		}
+		hexStr := sb.String()
+		if strings.HasPrefix(hexStr, "0x") || strings.HasPrefix(hexStr, "0X") {
+			hexStr = hexStr[2:]
+		}
+		if len(hexStr)%2 != 0 {
+			hexStr = "0" + hexStr
+		}
+		return hex.DecodeString(hexStr)
+	}
+	return b, nil
+}
+
+// 把字节切成 <=400B 的分片
+func split400(b []byte) [][]byte {
+	if len(b) == 0 {
+		return nil
+	}
+	out := make([][]byte, 0, (len(b)+399)/400)
+	for i := 0; i < len(b); i += 400 {
+		j := i + 400
+		if j > len(b) {
+			j = len(b)
+		}
+		out = append(out, b[i:j])
+	}
+	return out
 }

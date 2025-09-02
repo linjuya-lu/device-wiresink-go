@@ -14,12 +14,12 @@ import (
 
 var MqttClient mqtt.Client
 
-// 根据broker URL 和 clientID 创建并连接 MQTT 客户端
+// 初始化MQTT
 func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(brokerURL).
 		SetClientID(clientID).
-		// 设置自动重连，心跳，超时等
+		// 设置自动重连，心跳，超时
 		SetConnectRetry(true).
 		SetConnectRetryInterval(5 * time.Second).
 		SetKeepAlive(60 * time.Second).
@@ -36,7 +36,7 @@ func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
 	return client, nil
 }
 
-// EdgeX MessageBus 的通用消息格式
+// 外层
 type EdgexMessage struct {
 	ApiVersion    string      `json:"apiVersion"`
 	ReceivedTopic string      `json:"receivedTopic"`
@@ -47,18 +47,18 @@ type EdgexMessage struct {
 	ContentType   string      `json:"contentType"`
 }
 
-// 通用消息格式中的 payload 部分
+// 内层
 type SinkPayload struct {
-	Type      string `json:"Type"`      // sink: 网关自身参数，sensor: 传感器数据
+	Type      string `json:"Type"`      // sink: 网关自身；sensor: 传感器；updata: 升级数据；
 	Eid       string `json:"Eid"`       // 模块 EID
 	Timestamp uint64 `json:"Timestamp"` // 世纪秒时间戳
 	Datalen   int    `json:"Datalen"`   // 原始数据长度
 	Data      string `json:"Data"`      // 原始数据
 }
 
-// 订阅指定 topic，解析后把 Data 放入 SinkHexDataCh
+// 订阅，解析后把 Data 放入 SinkHexDataCh
 func SubscribeSinkData(cli mqtt.Client, topic string, qos byte) error {
-	log.Printf("🔔 订阅数据: %s", topic)
+	log.Printf("订阅数据: %s", topic)
 	tok := cli.Subscribe(topic, qos, sinkMsgHandler)
 	tok.Wait()
 	return tok.Error()
@@ -85,7 +85,7 @@ func payloadBytes(p interface{}) ([]byte, error) {
 	}
 }
 
-// ---- HEX 解码：去掉空白、分隔符、0x 前缀 ----
+// ---- HEX解码预处理：去掉空白、分隔符、0x 前缀 ----
 func decodeHexFlexible(s string) ([]byte, error) {
 	r := strings.NewReplacer(
 		" ", "", "\t", "", "\n", "", "\r", "",
@@ -99,56 +99,56 @@ func decodeHexFlexible(s string) ([]byte, error) {
 	return hex.DecodeString(s)
 }
 
-// ========== MQTT 回调 ==========
+// 订阅句柄
 func sinkMsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	// 解外层
 	var env EdgexMessage
 	if err := json.Unmarshal(msg.Payload(), &env); err != nil {
-		log.Printf("❌ 解析 EdgexMessage 失败: %v; payload=%s", err, string(msg.Payload()))
+		log.Printf("解析 EdgexMessage 失败: %v; payload=%s", err, string(msg.Payload()))
 		return
 	}
 	pb, err := payloadBytes(env.Payload)
 	if err != nil || len(pb) == 0 {
-		log.Printf("❌ 读取内层 payload 失败: %v", err)
+		log.Printf("读取内层 payload 失败: %v", err)
 		return
 	}
 
-	// 2) 解内层 SinkPayload
+	//解内层
 	var sp SinkPayload
 	if err := json.Unmarshal(pb, &sp); err != nil {
-		log.Printf("❌ 解析 SinkPayload 失败: %v; payload=%s", err, string(pb))
+		log.Printf("解析 SinkPayload 失败: %v; payload=%s", err, string(pb))
 		return
 	}
 	if sp.Data == "" {
-		log.Printf("⚠ SinkPayload.Data 为空，忽略")
+		log.Printf("数据帧值为空")
 		return
 	}
-	// 仅处理 Type=="sink"
+	//内层类型判断
 	if sp.Type != "" && sp.Type != "sink" {
-		log.Printf("ℹ 跳过 Type=%q 的消息", sp.Type)
-		// 若也要处理 sensor，可去掉这个判断
-	}
+		if sp.Type == "updata" {
 
+		}
+		log.Printf("ℹ 跳过 Type=%q 的消息", sp.Type)
+	}
+	//网关自身参数处理
 	// HEX → 原始字节
 	raw, err := decodeHexFlexible(sp.Data)
 	if err != nil {
-		log.Printf("❌ HEX 解码失败: %v; Data=%q", err, sp.Data)
+		log.Printf("HEX 解码失败: %v; Data=%q", err, sp.Data)
 		return
 	}
-	// 长度校验（若上游未填或为负，则不校验）
+	// 长度校验
 	if sp.Datalen >= 0 && sp.Datalen != len(raw) {
-		log.Printf("⚠ Datalen(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
+		log.Printf("Datalen(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
 	}
-
-	// 投递到通道
 	select {
 	case SinkRawDataCh <- raw:
 	default:
-		log.Printf("⚠ SinkRawDataCh 已满，丢弃 len=%d", len(raw))
+		log.Printf("SinkRawDataCh 已满，丢弃 len=%d", len(raw))
 	}
 }
 
-// 清洗/校验：去空白与常见分隔符、去 0x 前缀；确保偶数长度
+// 预处理：去空白与常见分隔符、去 0x 前缀；确保偶数长度；
 func normalizeHex(s string) (string, []byte, error) {
 	r := strings.NewReplacer(
 		" ", "", "\t", "", "\n", "", "\r", "",
@@ -166,17 +166,15 @@ func normalizeHex(s string) (string, []byte, error) {
 	return s, b, err
 }
 
-// 发送至topic
-// - eid:   模块 EID
-// - data:  字符串
+// 发布
 func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
-	//规整 & 校验
+	//预处理
 	normHex, raw, err := normalizeHex(data)
 	if err != nil {
 		return fmt.Errorf("invalid hex data: %w", err)
 	}
 
-	//组内层 payload
+	//内层
 	sp := SinkPayload{
 		Type:      "sink",
 		Eid:       eid,

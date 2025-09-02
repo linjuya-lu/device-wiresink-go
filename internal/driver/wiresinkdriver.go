@@ -41,7 +41,7 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	d.sdk = sdk
 	d.lc = sdk.LoggingClient()
 	d.asyncCh = sdk.AsyncValuesChannel()
-	// -- 初始化 MQTT 客户端 -- //
+	//初始化MQTT
 	brokerURL := "tcp://172.16.19.101:1883"
 	host, _ := os.Hostname()
 	clientID := fmt.Sprintf("wiresink-%s-%d", host, os.Getpid())
@@ -55,7 +55,6 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 }
 
 func (d *WireSinkDriver) Start() error {
-
 	devicesYAML := "../cmd/res/devices/devices.yaml"
 	profilesDir := "../cmd/res/profiles"
 
@@ -68,17 +67,14 @@ func (d *WireSinkDriver) Start() error {
 	}
 	// 解协程
 	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting)
-
 	//分片解析
 	go func() {
 		if err := frameparser.ShardingParser(frameparser.SDUCh); err != nil {
 			d.lc.Error("ShardingParser 异常退出: %v", err)
 		}
 	}()
-
 	//EID和设备名映射
 	config.UpdateSensorMapping()
-
 	startHealthCheckLoop() //状态控制
 	d.lc.Infof("有线汇聚类边代已启动")
 	return nil
@@ -139,54 +135,59 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
 		cv := params[i]
-		// 命令类型转换
 		v, _ := cv.Int8Value()
 		d.lc.Infof("Int8Value = %d", v)
-		// 如果是时间参数查询且值为 1
+		// 时间参数查询
 		if resName == "Time_Parameter_Query" && v == 1 {
 			if err := d.handleTimeParameterQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是时间参数设置且值为 1
+		// 时间参数设置
 		if resName == "Time_Parameter_Set" && v == 1 {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是复位命令且值为 1
+		// 复位命令
 		if resName == "Reset_Set" && v == 1 {
 			if err := d.handleResetCommand(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是ID查询命令且值为 1
+		// ID查询命令
 		if resName == "ID_Query" && v == 1 {
 			if err := d.handleIdQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是所有通用参数查询命令且值为 1
+		// 通用参数查询命令
 		if resName == "General_Parameter_Query" && v == 1 {
 			if err := d.handleGeneParaQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是所有告警数据查询命令且值为 1
+		// 告警数据查询命令
 		if resName == "Alarm_Parameter_Query" && v == 1 {
 			if err := d.handleIdAlarmParaQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是所有检测参数查询命令且值为 1
+		// 检测参数查询命令
 		if resName == "Monitoring_Data_Query" && v == 1 {
 			if err := d.handleIdMoniDataQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 如果是网络拓扑查询命令且值为 1
+		// 网络拓扑查询命令
 		if resName == "topologyDiagramQuery" && v == 1 {
 			if err := d.handleRouterParameterQuery(deviceName); err != nil {
+				return err
+			}
+		}
+		// 升级指令
+		if resName == "Upgrade_Query" && v == 1 {
+			if err := d.handleUpgradeQuery(deviceName); err != nil {
 				return err
 			}
 		}
@@ -196,7 +197,6 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 
 func (d *WireSinkDriver) Stop(force bool) error {
 	d.lc.Info("wireSinkDriver.Stop: device-wiresink driver is stopping...")
-	// 关闭通道
 	close(config.WriteChan)
 	return nil
 }

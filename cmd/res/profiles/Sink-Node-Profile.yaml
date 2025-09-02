@@ -182,6 +182,14 @@ deviceResources:
       readWrite: "W"       
       units: ""
       defaultValue: "0"   
+  - name: "Upgrade_Query"  # 升级
+    isHidden: false
+    description: "0未开启 1升级"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"  
   - name: "topologyDiagramQuery"   # 路由参数查询，查询所有拓扑信息
     isHidden: true
     description: "0未开启 1查询全部通用参数"

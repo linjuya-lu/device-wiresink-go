@@ -5,6 +5,9 @@ import "sync"
 // 写入通道
 var WriteChan = make(chan []byte, 100)
 
+// 模块EID
+var EidStr = "238A0841D828"
+
 // topoList 存储最新一批解析出的 NodeTopology 列表
 var (
 	TopoList []NodeTopology

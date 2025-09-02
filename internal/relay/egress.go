@@ -7,10 +7,9 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
 )
 
-func SendFrame(dstAddr string, payload []byte) {
-	eidStr := "238A0841D828"
+func SendFrame(srcAddr string, payload []byte) {
 
 	hexStr1 := strings.ToUpper(hex.EncodeToString(payload))
 
-	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", eidStr, hexStr1)
+	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", srcAddr, hexStr1)
 }
