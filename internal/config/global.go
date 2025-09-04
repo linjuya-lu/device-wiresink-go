@@ -8,13 +8,13 @@ var WriteChan = make(chan []byte, 100)
 // 模块EID
 var EidStr = "238A0841D828"
 
-// topoList 存储最新一批解析出的 NodeTopology 列表
+// 路由表
 var (
 	TopoList []NodeTopology
 	topoMu   sync.RWMutex
 )
 
-// GetTopoList 返回当前缓存
+// 返回路由表
 func GetTopoList() []NodeTopology {
 	topoMu.RLock()
 	defer topoMu.RUnlock()

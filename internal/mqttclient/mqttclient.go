@@ -14,7 +14,7 @@ import (
 
 var MqttClient mqtt.Client
 
-// 初始化MQTT
+// MQTT初始化
 func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(brokerURL).

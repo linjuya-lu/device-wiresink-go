@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// EID到逻辑设备名的映射
+// 资源映射
 var (
 	mu1                  sync.RWMutex
 	SensorIDToDeviceName = map[string]string{
@@ -13,35 +13,35 @@ var (
 	}
 )
 
-// 添加一条 SensorID -> DeviceName 映射，若存在则覆盖
+// 添加一条映射
 func AddMapping(sensorID, deviceName string) {
 	mu1.Lock()
 	defer mu1.Unlock()
 	SensorIDToDeviceName[sensorID] = deviceName
-	fmt.Printf("Mapping added: %s -> %s\n", sensorID, deviceName)
+	fmt.Printf("AddMapping Mapping added: %s -> %s\n", sensorID, deviceName)
 }
 
-// 删除指定 SensorID 的映射，若不存在返回错误
+// 删除指定映射
 func DeleteMapping(sensorID string) error {
 	mu1.Lock()
 	defer mu1.Unlock()
 	if _, ok := SensorIDToDeviceName[sensorID]; !ok {
-		return fmt.Errorf("no mapping found for SensorID %s", sensorID)
+		return fmt.Errorf("DeleteMapping no mapping found for SensorID %s", sensorID)
 	}
 	delete(SensorIDToDeviceName, sensorID)
-	fmt.Printf("Mapping deleted: %s\n", sensorID)
+	fmt.Printf("DeleteMapping Mapping deleted: %s\n", sensorID)
 	return nil
 }
 
-// 更新指定 SensorID 的 DeviceName，若不存在返回错误
+// 更新指定映射
 func UpdateMapping(sensorID, newDeviceName string) error {
 	mu1.Lock()
 	defer mu1.Unlock()
 	if _, ok := SensorIDToDeviceName[sensorID]; !ok {
-		return fmt.Errorf("no mapping found for SensorID %s", sensorID)
+		return fmt.Errorf("UpdateMapping no mapping found for SensorID %s", sensorID)
 	}
 	SensorIDToDeviceName[sensorID] = newDeviceName
-	fmt.Printf("Mapping updated: %s -> %s\n", sensorID, newDeviceName)
+	fmt.Printf("UpdateMapping Mapping updated: %s -> %s\n", sensorID, newDeviceName)
 	return nil
 }
 
@@ -53,7 +53,7 @@ func LookupDeviceName(sensorID string) (deviceName string, ok bool) {
 	return
 }
 
-// 扫描 valuesMap，把资源名为 "EID" 的值映射到设备名
+// 资源值映射
 func UpdateSensorMapping() {
 	mu1.Lock()
 	defer mu1.Unlock()

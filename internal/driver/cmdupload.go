@@ -8,10 +8,10 @@ import (
 )
 
 func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]interface{}) {
-	d.lc.Infof("[AsyncReporting] values=%#v", values)
+	d.lc.Infof("异步上传值为%#v", values)
 
 	if len(values) == 0 {
-		d.lc.Infof("AsyncReporting: 没有要上报的值")
+		d.lc.Infof("异步上传没有要上报的值")
 		return
 	}
 
@@ -19,7 +19,7 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 	origin := time.Now().UnixNano()
 
 	for name, val := range values {
-		d.lc.Infof("[AsyncReporting] processing: name=%s type=%T value=%v", name, val, val)
+		d.lc.Infof("一次异步上传: 资源=%s 类型=%T 值=%v", name, val, val)
 
 		var cv *dsModels.CommandValue
 		var err error
@@ -36,12 +36,12 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 		case string:
 			cv, err = dsModels.NewCommandValue(name, common.ValueTypeString, v)
 		default:
-			d.lc.Infof("不支持的类型: %T", v)
+			d.lc.Infof("异步上传 不支持的类型: %T", v)
 			continue
 		}
 
 		if err != nil {
-			d.lc.Infof("NewCommandValue(%s) 失败: %v", name, err)
+			d.lc.Infof("异步上传 值类型(%s) 错误: %v", name, err)
 			continue
 		}
 		cv.Origin = origin
@@ -49,11 +49,10 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 	}
 
 	if len(cvs) == 0 {
-		d.lc.Infof("AsyncReporting: 没有有效的 CommandValue，跳过上报")
+		d.lc.Infof("异步上传: 没有有效值，跳过上报")
 		return
 	}
 
-	// 封装 AsyncValues
 	asyncValues := &dsModels.AsyncValues{
 		DeviceName:    deviceName,
 		SourceName:    sourceName,
@@ -61,6 +60,6 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 	}
 
 	d.asyncCh <- asyncValues
-	d.lc.Infof("AsyncValues pushed: device=%s source=%s count=%d",
+	d.lc.Infof("异步值上传: 设备=%s 资源=%s 数量=%d",
 		deviceName, sourceName, len(cvs))
 }

@@ -12,9 +12,9 @@ func startHealthCheckLoop() {
 		defer ticker.Stop()
 
 		for range ticker.C {
-			now := time.Now().UnixNano() // 当前系统时间，纳秒
+			now := time.Now().UnixNano()
 
-			// 读取设备名称
+			// 设备名称
 			config.Mu.RLock()
 			deviceNames := make([]string, 0, len(config.ValuesMap))
 			for dev := range config.ValuesMap {
@@ -22,7 +22,7 @@ func startHealthCheckLoop() {
 			}
 			config.Mu.RUnlock()
 
-			// 逐个检查每台设备
+			// 检查每台设备
 			for _, dev := range deviceNames {
 				rawTs, okTs := config.GetDeviceValue(dev, "lastDataTimestamp")
 				rawPr, okPr := config.GetDeviceValue(dev, "period")
@@ -35,13 +35,13 @@ func startHealthCheckLoop() {
 				if !ok1 || !ok2 {
 					continue
 				}
-				// 判断是否超时： now - lastTs > 2 * period 秒
+				// 是否超时： now - lastTs > 2 * period 秒
 				deadline := int64(period) * 2 * int64(time.Second)
 				newState := uint8(0)
 				if now-lastTs > deadline {
 					newState = 1
 				}
-				// 写回 state
+				// 写回状态
 				config.SetDeviceValue(dev, "state", newState)
 			}
 		}

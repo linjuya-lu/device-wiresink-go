@@ -1,6 +1,6 @@
 package config
 
-// NodeTopology 表示一个节点的拓扑信息
+// 节点拓扑信息
 type NodeTopology struct {
 	EID    string `json:"eid"`    // 节点长地址
 	Type   string `json:"type"`   // 节点类型：0=微功率，1=汇聚，2=低功耗，4=接入

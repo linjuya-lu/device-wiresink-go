@@ -318,7 +318,6 @@ func LookupParamInfo(paramType uint16) (ParamInfo, bool) {
 
 // ===================== 通用解析函数 =====================
 
-// 通用解析函数
 func parseFloat32(data []byte) (any, error) {
 	if len(data) != 4 {
 		return nil, fmt.Errorf("期望4字节，实际%d", len(data))
@@ -349,9 +348,7 @@ func parseUint32(data []byte) (any, error) {
 	return binary.LittleEndian.Uint32(data), nil
 }
 
-// 读取 4*N 字节为 []float32
 func parsefloat32Array(data []byte) (any, error) {
-	// 数据长度应为 4*N
 	if len(data)%4 != 0 {
 		return nil, fmt.Errorf("波形数据长度非4的倍数: %d", len(data))
 	}
@@ -364,9 +361,7 @@ func parsefloat32Array(data []byte) (any, error) {
 	return samples, nil
 }
 
-// 将长度为 2*N 的字节切片解析为 []uint16
 func parseUint16Array(data []byte) (any, error) {
-	// 数据长度应为 2*N
 	if len(data)%2 != 0 {
 		return nil, fmt.Errorf("uint16 数组数据长度非2的倍数: %d", len(data))
 	}
@@ -378,30 +373,25 @@ func parseUint16Array(data []byte) (any, error) {
 	return values, nil
 }
 
-// 将 2 字节的小端序数据解析为 int16
 func parseInt16(data []byte) (any, error) {
 	if len(data) != 2 {
 		return nil, fmt.Errorf("期望2字节，实际%d", len(data))
 	}
 	u := binary.LittleEndian.Uint16(data)
-	// 将 uint16 按位模式转换为 int16
 	val := int16(u)
 	return val, nil
 }
 
 func parseTopo(data []byte) (any, error) {
-	// 形如：[6B EID][,][1B state][,][1B type][,][6B parent][$]...
 	n := len(data)
 
-	// 判断从 i 开始是否是一个节点模式
 	looksLikeNode := func(i int) bool {
-		// 需要 6 + 1 + 1 + 1 + 1 + 6 共 16 字节
 		if i+16 > n {
 			return false
 		}
-		return data[i+6] == 0x2C && // ','
-			data[i+8] == 0x2C && // ','
-			data[i+10] == 0x2C // ','
+		return data[i+6] == 0x2C &&
+			data[i+8] == 0x2C &&
+			data[i+10] == 0x2C
 	}
 
 	// 找到第一个节点起点
@@ -410,12 +400,12 @@ func parseTopo(data []byte) (any, error) {
 		i++
 	}
 	if i >= n {
-		return nil, fmt.Errorf("未找到节点起点，数据不符合约定")
+		return nil, fmt.Errorf("parseTopo 未找到节点起点，数据不符合约定")
 	}
 
 	var topoList []NodeTopology
 
-	// 小工具：6字节转 12 位大写十六进制
+	// 6字节转 12 位大写十六进制
 	toHex12 := func(b []byte) string {
 		const hexdigits = "0123456789ABCDEF"
 		dst := make([]byte, 12)
@@ -475,21 +465,18 @@ func parseTopo(data []byte) (any, error) {
 		}
 		topoList = append(topoList, topology)
 
-		// 可选分隔符 '$'
-		if i < n && data[i] == 0x24 { // '$'
+		if i < n && data[i] == 0x24 {
 			i++
-			// 接着看下一个节点
 			continue
 		}
 
-		// 若紧跟另一个节点模式则继续，否则结束
 		if i < n && looksLikeNode(i) {
 			continue
 		}
 		break
 	}
 
-	// 更新全局
+	// 更新
 	topoMu.Lock()
 	TopoList = topoList
 	topoMu.Unlock()
