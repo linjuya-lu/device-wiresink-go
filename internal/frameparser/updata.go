@@ -499,6 +499,183 @@ func (r *ComplementRegistry) SendEndAndConfirm(ctx context.Context, fileName str
 	pkt[plenPos+1] = byte(packetLen)
 
 	// 发送
-	relay.SendFrame(config.EidStr, pkt)
+	relay.SendFrame("updata", config.EidStr, pkt)
 	return nil
+}
+
+//---------------------------------------------------升级解析函数部分---------------------------------------------------
+
+// 升级请求响应报文
+type UpgradeResponse struct {
+	Sync          uint16   // 报文头
+	PacketLength  uint16   // 报文长度
+	CMD_ID        [17]byte // 监测装置 ID
+	FrameType     byte     // 帧类型
+	PacketType    byte     // 报文类型 (0xB1)
+	FrameNo       byte     // 帧序号
+	CommandStatus byte     // 数据发送状态 (0xFF=成功, 0x00=失败)
+	CRC16         uint16   // CRC16 校验
+	End           byte     // 报文尾
+}
+
+// 升级请求响应解析
+func ParseUpgradeResponse(data []byte) (*UpgradeResponse, error) {
+	if len(data) < 28 { // 按表格最小 28 字节计算
+		return nil, fmt.Errorf("报文长度不足，只有 %d 字节", len(data))
+	}
+
+	resp := &UpgradeResponse{}
+	resp.Sync = binary.BigEndian.Uint16(data[0:2])
+	resp.PacketLength = binary.BigEndian.Uint16(data[2:4])
+	copy(resp.CMD_ID[:], data[4:21])
+	resp.FrameType = data[21]
+	resp.PacketType = data[22]
+	resp.FrameNo = data[23]
+	resp.CommandStatus = data[24]
+
+	// 报文中的 CRC16 和 End
+	resp.CRC16 = binary.BigEndian.Uint16(data[len(data)-3 : len(data)-1])
+	resp.End = data[len(data)-1]
+
+	// ✅ CRC 校验
+	calcCRC := CRC16(data[:len(data)-3]) // 计算 CRC（不含 CRC16 和 End）
+	if calcCRC != resp.CRC16 {
+		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", resp.CRC16, calcCRC)
+	}
+
+	// ✅ End 校验
+	if resp.End != 0x96 {
+		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", resp.End)
+	}
+
+	return resp, nil
+}
+
+// 当前升级状态报文
+type UpgradeStatus struct {
+	Sync            uint16   // 报文头
+	PacketLength    uint16   // 报文长度
+	CMD_ID          [17]byte // 监测装置ID
+	FrameType       byte     // 帧类型
+	PacketType      byte     // 报文类型 (0xD1)
+	FrameNo         byte     // 帧序号
+	DeviceState     byte     // 设备状态 (1-空闲 2-升级中 3-完成 4-失败)
+	DescriptionSize byte     // 描述信息长度
+	Description     string   // 描述信息 (GB2312 编码，示例中简单按字节转字符串)
+	CRC16           uint16   // 校验位
+	End             byte     // 报文尾 (0x96)
+}
+
+// 升级状态报文解析
+func ParseUpgradeStatus(data []byte) (*UpgradeStatus, error) {
+	if len(data) < 28 { // 最小长度
+		return nil, fmt.Errorf("报文长度不足，只有 %d 字节", len(data))
+	}
+
+	status := &UpgradeStatus{}
+	status.Sync = binary.BigEndian.Uint16(data[0:2])
+	status.PacketLength = binary.BigEndian.Uint16(data[2:4])
+	copy(status.CMD_ID[:], data[4:21])
+	status.FrameType = data[21]
+	status.PacketType = data[22]
+	status.FrameNo = data[23]
+	status.DeviceState = data[24]
+	status.DescriptionSize = data[25]
+
+	// 描述信息解析
+	descStart := 26
+	descEnd := descStart + int(status.DescriptionSize)
+	if descEnd > len(data)-3 { // 预留 CRC16 + End 3字节
+		return nil, fmt.Errorf("描述信息长度非法，超出报文范围")
+	}
+	status.Description = string(data[descStart:descEnd]) // 简单转换（GB2312 -> UTF8 可额外处理）
+
+	// 报文中的 CRC16 和 End
+	status.CRC16 = binary.BigEndian.Uint16(data[len(data)-3 : len(data)-1])
+	status.End = data[len(data)-1]
+
+	// ✅ CRC 校验
+	calcCRC := CRC16(data[:len(data)-3])
+	if calcCRC != status.CRC16 {
+		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", status.CRC16, calcCRC)
+	}
+
+	// ✅ End 校验
+	if status.End != 0x96 {
+		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", status.End)
+	}
+
+	return status, nil
+}
+
+// 补包请求
+type ComplementPacket struct {
+	Sync              uint16   // 报文头
+	PacketLength      uint16   // 报文长度
+	CMD_ID            [17]byte // 设备ID
+	FrameType         byte     // 帧类型
+	PacketType        byte     // 报文类型 (0xB4)
+	FrameNo           byte     // 帧序号
+	FileName          string   // 文件名 (32字节，以\0结尾)
+	ComplementPackSum uint16   // 补包包数
+	ComplementPackNo  []uint16 // 补包包号序列
+	CRC16             uint16   // 校验
+	End               byte     // 报文尾
+}
+
+// 补包请求解析
+func ParseComplementPacket(data []byte) (*ComplementPacket, error) {
+	if len(data) < 60 { // 最小长度(含32字节文件名)
+		return nil, fmt.Errorf("报文长度不足，只有 %d 字节", len(data))
+	}
+
+	cp := &ComplementPacket{}
+	cp.Sync = binary.BigEndian.Uint16(data[0:2])
+	cp.PacketLength = binary.BigEndian.Uint16(data[2:4])
+	copy(cp.CMD_ID[:], data[4:21])
+	cp.FrameType = data[21]
+	cp.PacketType = data[22]
+	cp.FrameNo = data[23]
+
+	// 文件名 (32字节，以\0结尾)
+	fileBytes := data[24:56]
+	n := 0
+	for ; n < len(fileBytes); n++ {
+		if fileBytes[n] == 0 {
+			break
+		}
+	}
+	cp.FileName = string(fileBytes[:n])
+
+	// 补包包数
+	cp.ComplementPackSum = binary.BigEndian.Uint16(data[56:58])
+
+	// 补包包号序列
+	start := 58
+	end := len(data) - 3 // 留 CRC16(2) + End(1)
+	for i := 0; i < int(cp.ComplementPackSum); i++ {
+		idx := start + i*2
+		if idx+2 > end {
+			return nil, fmt.Errorf("补包包号序列超出报文范围")
+		}
+		seq := binary.BigEndian.Uint16(data[idx : idx+2])
+		cp.ComplementPackNo = append(cp.ComplementPackNo, seq)
+	}
+
+	// 报文中的 CRC 和 End
+	cp.CRC16 = binary.BigEndian.Uint16(data[end : end+2])
+	cp.End = data[end+2]
+
+	// ✅ CRC 校验
+	calcCRC := CRC16(data[0:end]) // 只算到 CRC16 前
+	if calcCRC != cp.CRC16 {
+		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", cp.CRC16, calcCRC)
+	}
+
+	// ✅ End 校验
+	if cp.End != 0x96 {
+		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", cp.End)
+	}
+
+	return cp, nil
 }

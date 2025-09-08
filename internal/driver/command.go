@@ -56,7 +56,7 @@ func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 	reqFrame, _ := frameparser.BuildTimeParamFrame(sensorID, 1, ts)
 
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, reqFrame)
+	relay.SendFrame("sink", eidStr, reqFrame)
 	d.lc.Infof("时间设置 已发送时间设置命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -86,7 +86,7 @@ func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 	reqFrame, _ := frameparser.BuildResetRequest(sensorID)
 	eidStr, _ := eidValue.(string)
 
-	relay.SendFrame(eidStr, reqFrame)
+	relay.SendFrame("sink", eidStr, reqFrame)
 	d.lc.Infof("复位命令 已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -116,7 +116,7 @@ func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
 	copy(sensorID[:], eidBytes)
 	reqFrame, _ := frameparser.BuildTimeParamFrame(sensorID, 0, 0)
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, reqFrame)
+	relay.SendFrame("sink", eidStr, reqFrame)
 	d.lc.Infof("时间参数查询 已发送时间参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -150,7 +150,7 @@ func (d *WireSinkDriver) handleIdQuery(deviceName string) error {
 	}
 	//发送命令
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, frame)
+	relay.SendFrame("sink", eidStr, frame)
 	d.lc.Infof("EID查询命令 已发送EID查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -183,7 +183,7 @@ func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
 	}
 	eidStr, _ := eidValue.(string)
 	//发送命令
-	relay.SendFrame(eidStr, frame)
+	relay.SendFrame("sink", eidStr, frame)
 	d.lc.Infof("检测数据查询 已发送检测数据查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -217,7 +217,7 @@ func (d *WireSinkDriver) handleIdAlarmParaQuery(deviceName string) error {
 	}
 
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, frame)
+	relay.SendFrame("sink", eidStr, frame)
 	d.lc.Infof("告警参数查询 已发送告警参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -251,7 +251,7 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 		return fmt.Errorf("拓扑查询 构造拓扑查询失败: %w", err)
 	}
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, frame)
+	relay.SendFrame("sink", eidStr, frame)
 	d.lc.Infof("已发送拓扑查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -276,7 +276,7 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 	d.upgMu.Lock()
 	if _, exists := d.upgrading[deviceName]; exists {
 		d.upgMu.Unlock()
-		d.lc.Warnf("upgrade already running for %s", deviceName)
+		d.lc.Warnf("已经开始升级 %s", deviceName)
 		return nil
 	}
 
@@ -311,6 +311,31 @@ func (d *WireSinkDriver) report(dev, stage string, err error) {
 	case d.progCh <- UpgradeProgress{Device: dev, Stage: stage, Err: err}:
 	default:
 		// 丢弃或扩容通道
+	}
+}
+
+// 轮询等待某分片的 Acked=true；支持 ctx 取消与超时
+func waitSubAck(ctx context.Context, subNo uint16, timeout time.Duration) error {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	tick := time.NewTicker(10 * time.Millisecond) // 轻量轮询
+	defer tick.Stop()
+
+	for {
+		// 已收到 ACK
+		if st, ok := config.Frames.Get(subNo); ok && st.Acked {
+			return nil
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+			return fmt.Errorf("wait ack timeout: sub=%d", subNo)
+		case <-tick.C:
+			// 继续下一轮
+		}
 	}
 }
 
@@ -370,7 +395,10 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	if err != nil {
 		return fmt.Errorf("发送升级请求报文失败: %w", err)
 	}
-	relay.SendFrame(config.EidStr, pktReq)
+	mu2.Lock()
+	readyFlag = 0 //未就绪
+	mu2.Unlock()
+	relay.SendFrame("updata", config.EidStr, pktReq)
 
 	// 等设备就绪
 	if err := waitReady(ctx, 10*time.Second); err != nil {
@@ -385,14 +413,24 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			return ctx.Err()
 		default:
 		}
+
 		subNo := uint16(i + 1)
+
 		pktData, err := frameparser.BuildUpgradeDataPacket(config.EidStr, frameNo, subNo, chunk)
 		if err != nil {
 			return fmt.Errorf("BuildUpgradeDataPacket sub=%d 失败: %w", subNo, err)
 		}
-		relay.SendFrame(config.EidStr, pktData)
-		// 等待每片ACK
-		// if err := d.waitChunkAck(ctx, subNo, 2*time.Second); err != nil { ... }
+
+		if err := relay.SendFrame("updata", config.EidStr, pktData); err != nil {
+			return fmt.Errorf("send frame sub=%d: %w", subNo, err)
+		}
+
+		// 阻塞等待ACK，超时退出
+		const ackWait = 2 * time.Second
+		if err := waitSubAck(ctx, subNo, ackWait); err != nil {
+			d.lc.Errorf("sub=%d 等待ACK超时(%s): %v", subNo, ackWait, err)
+			return err
+		}
 	}
 
 	d.lc.Infof("初次发送完毕，进入补包处理/结束确认阶段")
@@ -431,6 +469,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 				return ctx.Err()
 			default:
 			}
+
 			if subNo == 0 || int(subNo) > len(chunks) {
 				d.lc.Warnf("忽略非法补包号 subNo=%d（总片数=%d）", subNo, len(chunks))
 				continue
@@ -440,10 +479,17 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			if err != nil {
 				return fmt.Errorf("补包构造失败 sub=%d: %w", subNo, err)
 			}
-			relay.SendFrame(config.EidStr, pkt)
 
-			// 等待响应再发送
-			// if err := d.waitChunkAck(ctx, subNo, 2*time.Second); err != nil { ... }
+			if err := relay.SendFrame("updata", config.EidStr, pkt); err != nil {
+				return fmt.Errorf("补包发送失败 sub=%d: %w", subNo, err)
+			}
+
+			// 仅等待一次 ACK，超时直接退出
+			const ackWait = 2 * time.Second
+			if err := waitSubAck(ctx, subNo, ackWait); err != nil {
+				d.lc.Errorf("补包 sub=%d 等待ACK超时(%s): %v", subNo, ackWait, err)
+				return err
+			}
 		}
 
 		// 本轮补包完成，清空数据

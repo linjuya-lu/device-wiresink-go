@@ -2,9 +2,9 @@ package driver
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"math"
 	"os"
 	"strconv"
@@ -30,6 +30,9 @@ type WireSinkDriver struct {
 	upgMu     sync.Mutex
 	upgrading map[string]context.CancelFunc
 	progCh    chan UpgradeProgress // 未实现：进度/结果上报
+
+	upgCtx    context.Context
+	upgCancel context.CancelFunc
 }
 
 var once sync.Once
@@ -66,21 +69,31 @@ func (d *WireSinkDriver) Start() error {
 	if err := config.InitDeviceResources(devicesYAML, profilesDir); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
-	//订阅
-	if err := mqttclient.SubscribeSinkData(mqttclient.MqttClient, "edgex/service/request/device_wiresink/up", 0); err != nil {
-		log.Fatal(err)
+
+	// 主题订阅
+	if err := mqttclient.SubscribeData(mqttclient.MqttClient, "edgex/service/request/device_wiresink/up", 0); err != nil {
+		return err
 	}
+
+	// 升级报文分发协程（可取消）
+	d.upgCtx, d.upgCancel = context.WithCancel(context.Background())
+	go d.runUpgradeDispatcher(d.upgCtx)
+
 	// 解协程
 	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting)
-	//分片解析
+
+	// 分片解析
 	go func() {
 		if err := frameparser.ShardingParser(frameparser.SDUCh); err != nil {
-			d.lc.Error("Start 分片解析 异常退出: %v", err)
+			d.lc.Errorf("Start 分片解析 异常退出: %v", err)
 		}
 	}()
-	//EID和设备名映射
+
+	// EID 和设备名映射
 	config.UpdateSensorMapping()
-	startHealthCheckLoop() //健康检查
+
+	startHealthCheckLoop() // 健康检查
+
 	d.lc.Infof("Start 有线汇聚类边代已启动")
 	return nil
 }
@@ -185,6 +198,8 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 		}
 		// 升级
 		if resName == "Upgrade_Query" && v == 1 {
+			config.Frames.Clear() // 清帧状态表
+
 			_ = d.startUpgradeAsync(deviceName)
 		}
 
@@ -502,4 +517,75 @@ func makeCV(name string, valueType string, val any) (*dsModels.CommandValue, err
 	}
 	cv.Origin = time.Now().UnixNano()
 	return cv, nil
+}
+
+func (d *WireSinkDriver) runUpgradeDispatcher(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case raw := <-mqttclient.UpgradeRawDataCh:
+			if err := d.handleUpgradeFrame(raw); err != nil {
+				d.lc.Errorf("升级帧处理: %v", err)
+			}
+		}
+	}
+}
+
+// 解析并分发三个报文：响应、补包、状态
+func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
+	if len(data) < 24 {
+		return fmt.Errorf("帧过短: %d", len(data))
+	}
+	// 头尾检查
+	if binary.BigEndian.Uint16(data[0:2]) != 0x5AA5 {
+		return fmt.Errorf("sync 非 0x5AA5")
+	}
+	if data[len(data)-1] != 0x96 {
+		return fmt.Errorf("end 非 0x96")
+	}
+
+	pktType := data[22]
+	switch pktType {
+	case 0xB1: // 升级请求响应
+		resp, err := frameparser.ParseUpgradeResponse(data)
+		if err != nil {
+			return fmt.Errorf("ParseUpgradeResponse: %w", err)
+		}
+		d.lc.Infof("B1 响应: FrameNo=%d Status=0x%X", resp.FrameNo, resp.CommandStatus)
+		// TODO: 如需通知状态机，可发送到 channel/回调
+
+	case 0xB4: // 补包请求
+		cp, err := frameparser.ParseComplementPacket(data)
+		if err != nil {
+			return fmt.Errorf("ParseComplementPacket: %w", err)
+		}
+		dev := asciiTrim(cp.CMD_ID[:])
+		// 登记补包（按设备区分）
+		frameparser.CompReg.Set(dev, cp.ComplementPackSum, cp.ComplementPackNo)
+		d.lc.Infof("B4 补包: dev=%s sum=%d nos=%v file=%s", dev, cp.ComplementPackSum, cp.ComplementPackNo, cp.FileName)
+
+	case 0xD1: // 升级状态
+		st, err := frameparser.ParseUpgradeStatus(data)
+		if err != nil {
+			return fmt.Errorf("ParseUpgradeStatus: %w", err)
+		}
+		dev := asciiTrim(st.CMD_ID[:])
+		d.lc.Infof("D1 状态: dev=%s state=%d desc=%q", dev, st.DeviceState, st.Description)
+		// TODO: 推送到业务层（进度、完成/失败）
+
+	default:
+		// 其它升级相关类型（如 0xB2/0xB3 的响应）在这里加
+		d.lc.Warnf("未知升级报文类型: 0x%X", pktType)
+	}
+	return nil
+}
+
+// 工具：把 17 字节 ASCII 的 CMD_ID 去掉尾部 0
+func asciiTrim(b []byte) string {
+	n := len(b)
+	for n > 0 && b[n-1] == 0 {
+		n--
+	}
+	return string(b[:n])
 }

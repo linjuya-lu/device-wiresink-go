@@ -208,7 +208,7 @@ func SendDataStatus(sensorKey string, packetType byte, dataStatus byte, dataLen 
 	crc := CRC16(packet)
 	packet = append(packet, byte(crc>>8), byte(crc&0xFF))
 	//发送
-	relay.SendFrame(sensorKey, packet)
+	relay.SendFrame("sink", sensorKey, packet)
 	return nil
 }
 

@@ -7,9 +7,16 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
 )
 
-func SendFrame(srcAddr string, payload []byte) {
+// 常量主题
+const downTopic = "edgex/server/response/device_wiresink/down"
 
-	hexStr1 := strings.ToUpper(hex.EncodeToString(payload))
-
-	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", srcAddr, hexStr1)
+func SendFrame(typ, srcAddr string, payload []byte) error {
+	hexStr := strings.ToUpper(hex.EncodeToString(payload))
+	return mqttclient.PublishSinkCommand(
+		mqttclient.MqttClient,
+		downTopic,
+		typ,
+		srcAddr,
+		hexStr,
+	)
 }

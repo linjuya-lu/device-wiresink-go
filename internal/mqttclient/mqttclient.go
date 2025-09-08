@@ -12,7 +12,11 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-var MqttClient mqtt.Client
+var (
+	MqttClient       mqtt.Client
+	SinkRawDataCh    = make(chan []byte, 128) // 网关自身参数
+	UpgradeRawDataCh = make(chan []byte, 128) // 升级报文
+)
 
 // MQTT初始化
 func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
@@ -56,16 +60,12 @@ type SinkPayload struct {
 	Data      string `json:"Data"`      // 原始数据
 }
 
-// 订阅，解析后把 Data 放入 SinkHexDataCh
-func SubscribeSinkData(cli mqtt.Client, topic string, qos byte) error {
+func SubscribeData(cli mqtt.Client, topic string, qos byte) error {
 	log.Printf("订阅数据: %s", topic)
-	tok := cli.Subscribe(topic, qos, sinkMsgHandler)
+	tok := cli.Subscribe(topic, qos, MsgHandler)
 	tok.Wait()
 	return tok.Error()
 }
-
-// 消费通道：原始字节
-var SinkRawDataCh = make(chan []byte, 128)
 
 // ---- 提取 payload 的原始 JSON 字节 ----
 func payloadBytes(p interface{}) ([]byte, error) {
@@ -99,8 +99,7 @@ func decodeHexFlexible(s string) ([]byte, error) {
 	return hex.DecodeString(s)
 }
 
-// 订阅句柄
-func sinkMsgHandler(_ mqtt.Client, msg mqtt.Message) {
+func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	// 解外层
 	var env EdgexMessage
 	if err := json.Unmarshal(msg.Payload(), &env); err != nil {
@@ -113,7 +112,7 @@ func sinkMsgHandler(_ mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	//解内层
+	// 解内层
 	var sp SinkPayload
 	if err := json.Unmarshal(pb, &sp); err != nil {
 		log.Printf("解析 SinkPayload 失败: %v; payload=%s", err, string(pb))
@@ -123,28 +122,37 @@ func sinkMsgHandler(_ mqtt.Client, msg mqtt.Message) {
 		log.Printf("数据帧值为空")
 		return
 	}
-	//内层类型判断
-	if sp.Type != "" && sp.Type != "sink" {
-		if sp.Type == "updata" {
 
-		}
-		log.Printf("ℹ 跳过 Type=%q 的消息", sp.Type)
-	}
-	//网关自身参数处理
-	// HEX → 原始字节
+	// 十六进制→字节序列
 	raw, err := decodeHexFlexible(sp.Data)
 	if err != nil {
 		log.Printf("HEX 解码失败: %v; Data=%q", err, sp.Data)
 		return
 	}
-	// 长度校验
 	if sp.Datalen >= 0 && sp.Datalen != len(raw) {
-		log.Printf("Datalen(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
+		log.Printf("数据长度(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
 	}
-	select {
-	case SinkRawDataCh <- raw:
+
+	// 按类型分流
+	switch strings.ToLower(strings.TrimSpace(sp.Type)) {
+	case "updata": // 升级
+		select {
+		case UpgradeRawDataCh <- raw:
+		default:
+			log.Printf("UpgradeRawDataCh 已满，丢弃 len=%d", len(raw))
+		}
+	case "", "sink": // 网关自身参数
+		fallthrough
 	default:
-		log.Printf("SinkRawDataCh 已满，丢弃 len=%d", len(raw))
+		// 其它类型
+		if sp.Type != "" && strings.ToLower(sp.Type) != "sink" {
+			log.Printf("未识别 Type=%q，按常规通道处理", sp.Type)
+		}
+		select {
+		case SinkRawDataCh <- raw:
+		default:
+			log.Printf("SinkRawDataCh 已满，丢弃 len=%d", len(raw))
+		}
 	}
 }
 
@@ -167,38 +175,44 @@ func normalizeHex(s string) (string, []byte, error) {
 }
 
 // 发布
-func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
-	//预处理
+func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error {
+	// 1) 预处理 HEX
 	normHex, raw, err := normalizeHex(data)
 	if err != nil {
 		return fmt.Errorf("invalid hex data: %w", err)
 	}
 
-	//内层
-	sp := SinkPayload{
-		Type:      "sink",
-		Eid:       eid,
-		Timestamp: uint64(time.Now().Unix()),
-		Datalen:   len(raw), // 字节数
-		Data:      strings.ToUpper(normHex),
+	// 2) 规范化 type
+	t := strings.TrimSpace(typ)
+	if t == "" {
+		t = "sink"
 	}
 
-	//外层
+	// 3) 内层 payload
+	sp := SinkPayload{
+		Type:      t,
+		Eid:       eid,
+		Timestamp: uint64(time.Now().Unix()),
+		Datalen:   len(raw),                 // 字节数
+		Data:      strings.ToUpper(normHex), // 规范为大写
+	}
+
+	// 4) 外层消息
+	now := time.Now().UnixNano()
 	env := EdgexMessage{
 		ApiVersion:    "v3",
-		CorrelationID: fmt.Sprintf("sink-%d", time.Now().UnixNano()),
-		RequestID:     fmt.Sprintf("req-%d", time.Now().UnixNano()),
+		CorrelationID: fmt.Sprintf("%s-%d", t, now),
+		RequestID:     fmt.Sprintf("req-%d", now),
 		ErrorCode:     0,
 		Payload:       sp,
 		ContentType:   "application/json",
 	}
 
-	//序列化并发布
+	// 5) 序列化并发布
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)
 	}
-
 	token := client.Publish(topic, 0, false, body)
 	token.Wait()
 	return token.Error()
