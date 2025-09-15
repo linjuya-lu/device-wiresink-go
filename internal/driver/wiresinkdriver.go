@@ -532,7 +532,7 @@ func (d *WireSinkDriver) runUpgradeDispatcher(ctx context.Context) {
 	}
 }
 
-// 解析并分发三个报文：响应、补包、状态
+// 升级报文解析：升级准备、补包、状态
 func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 	if len(data) < 24 {
 		return fmt.Errorf("帧过短: %d", len(data))
@@ -553,7 +553,7 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 			return fmt.Errorf("ParseUpgradeResponse: %w", err)
 		}
 		d.lc.Infof("B1 响应: FrameNo=%d Status=0x%X", resp.FrameNo, resp.CommandStatus)
-		// TODO: 如需通知状态机，可发送到 channel/回调
+		// TODO: 通知状态机
 
 	case 0xB4: // 补包请求
 		cp, err := frameparser.ParseComplementPacket(data)
@@ -561,7 +561,7 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 			return fmt.Errorf("ParseComplementPacket: %w", err)
 		}
 		dev := asciiTrim(cp.CMD_ID[:])
-		// 登记补包（按设备区分）
+		// 登记补包
 		frameparser.CompReg.Set(dev, cp.ComplementPackSum, cp.ComplementPackNo)
 		d.lc.Infof("B4 补包: dev=%s sum=%d nos=%v file=%s", dev, cp.ComplementPackSum, cp.ComplementPackNo, cp.FileName)
 
@@ -572,16 +572,15 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 		}
 		dev := asciiTrim(st.CMD_ID[:])
 		d.lc.Infof("D1 状态: dev=%s state=%d desc=%q", dev, st.DeviceState, st.Description)
-		// TODO: 推送到业务层（进度、完成/失败）
+		// TODO: 推送到业务层
 
 	default:
-		// 其它升级相关类型（如 0xB2/0xB3 的响应）在这里加
 		d.lc.Warnf("未知升级报文类型: 0x%X", pktType)
 	}
 	return nil
 }
 
-// 工具：把 17 字节 ASCII 的 CMD_ID 去掉尾部 0
+// 把 17 字节 ASCII 的 CMD_ID 去掉尾部 0
 func asciiTrim(b []byte) string {
 	n := len(b)
 	for n > 0 && b[n-1] == 0 {

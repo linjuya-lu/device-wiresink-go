@@ -360,7 +360,7 @@ func NewComplementRegistry() *ComplementRegistry {
 	return &ComplementRegistry{m: make(map[string]ComplementInfo)}
 }
 
-// 覆盖设置（第一次收到 B4 或主动以设备端上报的 Sum/No 为准）
+// 覆盖设置
 func (r *ComplementRegistry) Set(deviceName string, sum uint16, nos []uint16) {
 	r.mu.Lock()
 	r.m[deviceName] = ComplementInfo{
@@ -533,21 +533,20 @@ func ParseUpgradeResponse(data []byte) (*UpgradeResponse, error) {
 	resp.FrameNo = data[23]
 	resp.CommandStatus = data[24]
 
-	// 报文中的 CRC16 和 End
+	// CRC16 和 End
 	resp.CRC16 = binary.BigEndian.Uint16(data[len(data)-3 : len(data)-1])
 	resp.End = data[len(data)-1]
 
-	// ✅ CRC 校验
+	// CRC 校验
 	calcCRC := CRC16(data[:len(data)-3]) // 计算 CRC（不含 CRC16 和 End）
 	if calcCRC != resp.CRC16 {
 		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", resp.CRC16, calcCRC)
 	}
 
-	// ✅ End 校验
+	// End 校验
 	if resp.End != 0x96 {
 		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", resp.End)
 	}
-
 	return resp, nil
 }
 
@@ -590,17 +589,17 @@ func ParseUpgradeStatus(data []byte) (*UpgradeStatus, error) {
 	}
 	status.Description = string(data[descStart:descEnd]) // 简单转换（GB2312 -> UTF8 可额外处理）
 
-	// 报文中的 CRC16 和 End
+	// CRC16 和 End
 	status.CRC16 = binary.BigEndian.Uint16(data[len(data)-3 : len(data)-1])
 	status.End = data[len(data)-1]
 
-	// ✅ CRC 校验
+	// CRC 校验
 	calcCRC := CRC16(data[:len(data)-3])
 	if calcCRC != status.CRC16 {
 		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", status.CRC16, calcCRC)
 	}
 
-	// ✅ End 校验
+	// End 校验
 	if status.End != 0x96 {
 		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", status.End)
 	}
@@ -666,13 +665,13 @@ func ParseComplementPacket(data []byte) (*ComplementPacket, error) {
 	cp.CRC16 = binary.BigEndian.Uint16(data[end : end+2])
 	cp.End = data[end+2]
 
-	// ✅ CRC 校验
+	// CRC 校验
 	calcCRC := CRC16(data[0:end]) // 只算到 CRC16 前
 	if calcCRC != cp.CRC16 {
 		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", cp.CRC16, calcCRC)
 	}
 
-	// ✅ End 校验
+	// End 校验
 	if cp.End != 0x96 {
 		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", cp.End)
 	}
