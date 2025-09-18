@@ -278,49 +278,57 @@ func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 	if utf8.RuneCountInString(fileName) > fileNameSz-1 {
 		return nil, fmt.Errorf("FileName too long (> %d)", fileNameSz-1)
 	}
-	if meta.FrameLen == 0 || meta.FrameLen > 400 {
+	if meta.FrameLen == 0 {
 		return nil, fmt.Errorf("FrameLen invalid (%d)", meta.FrameLen)
 	}
 	if meta.TotalPackets == 0 {
 		return nil, errors.New("TotalPackets must > 0")
 	}
-	if meta.Endian == nil {
-		meta.Endian = binary.BigEndian
-	}
 	if meta.FrameType == 0 {
-		meta.FrameType = FrameTypeControl
+		meta.FrameType = FrameTypeControl // 0x03
 	}
 	if meta.PacketType == 0 {
-		meta.PacketType = PacketTypeB1
+		meta.PacketType = PacketTypeB1 // 0xB1
 	}
 
 	var buf bytes.Buffer
+	// 1) Sync
 	buf.WriteByte(syncHi)
 	buf.WriteByte(syncLo)
 
+	// 2) Packet_Length 占位（2B，大端；稍后按“payload长度”回填）
 	lenPos := buf.Len()
-	buf.Write([]byte{0x00, 0x00}) // Packet_Length 占位
+	buf.Write([]byte{0x00, 0x00})
 
-	writeFixedASCII(&buf, meta.EID, cmdIDLen) // CMD_ID(17)
-	buf.WriteByte(meta.FrameType)             // Frame_Type
-	buf.WriteByte(meta.PacketType)            // Packet_Type
-	buf.WriteByte(meta.FrameNo)               // Frame_No
-	writeFixedASCII(&buf, fileName, fileNameSz)
-	buf.WriteByte(meta.FileType)
-	writeU16(&buf, meta.Endian, meta.FrameLen)
-	writeU16(&buf, meta.Endian, meta.TotalPackets)
-	writeU32(&buf, meta.Endian, meta.TotalSize)
+	// 3) 头部与文本字段（无大小端）
+	writeFixedASCII(&buf, meta.EID, cmdIDLen)   // CMD_ID (17)
+	buf.WriteByte(meta.FrameType)               // Frame_Type (1)
+	buf.WriteByte(meta.PacketType)              // Packet_Type (1)
+	buf.WriteByte(meta.FrameNo)                 // Frame_No (1)
+	writeFixedASCII(&buf, fileName, fileNameSz) // File_Name (32)
 
-	pkt := buf.Bytes()
+	// 记录“payload”起点：从 File_Type 开始
+	payloadStart := buf.Len()
 
-	crcVal := CRC16(pkt[lenPos:buf.Len()])
-	writeU16(&buf, meta.Endian, crcVal)
+	// 4) payload 数值字段（红框外）—— 都按大端
+	buf.WriteByte(meta.FileType)                        // File_Type (1)
+	writeU32(&buf, binary.BigEndian, meta.TotalSize)    // Total_Size (4, BE)
+	writeU16(&buf, binary.BigEndian, meta.FrameLen)     // Frame_Len (2, BE)
+	writeU16(&buf, binary.BigEndian, meta.TotalPackets) // Total_Packets (2, BE)
 
-	buf.WriteByte(endMark)
+	// 5) 回填 Packet_Length：= payload 长度（File_Type..Total_Packets），不含 CRC/End
+	body := buf.Bytes()
+	payloadLen := uint16(buf.Len() - payloadStart)
+	binary.BigEndian.PutUint16(body[lenPos:], payloadLen)
 
-	final := buf.Bytes()
-	meta.Endian.PutUint16(final[lenPos:lenPos+2], uint16(len(final)))
-	return final, nil
+	// 6) CRC：从 Packet_Length 开始到 CRC 前（包含 Packet_Length 与 payload，不含 Sync/CRC/End）
+	crc := CRC16(body[lenPos:])
+	writeU16(&buf, binary.BigEndian, crc) // CRC16 (2, BE)
+
+	// 7) End
+	buf.WriteByte(endMark) // 0x96
+
+	return buf.Bytes(), nil
 }
 
 // 工具函数
@@ -507,46 +515,77 @@ func (r *ComplementRegistry) SendEndAndConfirm(ctx context.Context, fileName str
 
 // 升级请求响应报文
 type UpgradeResponse struct {
-	Sync          uint16   // 报文头
-	PacketLength  uint16   // 报文长度
+	Sync          uint16   // 0x5AA5
+	PacketLength  uint16   // 报文长度（见计算规则）
 	CMD_ID        [17]byte // 监测装置 ID
-	FrameType     byte     // 帧类型
-	PacketType    byte     // 报文类型 (0xB1)
-	FrameNo       byte     // 帧序号
-	CommandStatus byte     // 数据发送状态 (0xFF=成功, 0x00=失败)
-	CRC16         uint16   // CRC16 校验
-	End           byte     // 报文尾
+	FrameType     byte
+	PacketType    byte // 设备可能用 0xB1/0xD1
+	FrameNo       byte
+	CommandStatus byte // 0xFF 成功 / 0x00 失败
+	CRC16         uint16
+	End           byte // 0x96
 }
 
 // 升级请求响应解析
 func ParseUpgradeResponse(data []byte) (*UpgradeResponse, error) {
-	if len(data) < 28 { // 按表格最小 28 字节计算
+	// 表2最短：2+2+17+1+1+1+1+2+1 = 28
+	if len(data) < 28 {
 		return nil, fmt.Errorf("报文长度不足，只有 %d 字节", len(data))
 	}
 
-	resp := &UpgradeResponse{}
-	resp.Sync = binary.BigEndian.Uint16(data[0:2])
-	resp.PacketLength = binary.BigEndian.Uint16(data[2:4])
-	copy(resp.CMD_ID[:], data[4:21])
-	resp.FrameType = data[21]
-	resp.PacketType = data[22]
-	resp.FrameNo = data[23]
-	resp.CommandStatus = data[24]
-
-	// CRC16 和 End
-	resp.CRC16 = binary.BigEndian.Uint16(data[len(data)-3 : len(data)-1])
-	resp.End = data[len(data)-1]
-
-	// CRC 校验
-	calcCRC := CRC16(data[:len(data)-3]) // 计算 CRC（不含 CRC16 和 End）
-	if calcCRC != resp.CRC16 {
-		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", resp.CRC16, calcCRC)
+	// 1) 帧头和长度字节序。设备常见两种：5A A5（大端显示）/ A5 5A（小端显示）
+	var lenOrder binary.ByteOrder
+	switch {
+	case data[0] == 0x5A && data[1] == 0xA5:
+		lenOrder = binary.BigEndian
+	case data[0] == 0xA5 && data[1] == 0x5A:
+		lenOrder = binary.LittleEndian
+	default:
+		return nil, fmt.Errorf("非法帧头: %02X %02X (期望 5A A5 或 A5 5A)", data[0], data[1])
 	}
 
-	// End 校验
+	resp := &UpgradeResponse{}
+	resp.Sync = 0x5AA5
+	resp.PacketLength = lenOrder.Uint16(data[2:4])
+
+	offset := 4
+	copy(resp.CMD_ID[:], data[offset:offset+17])
+	offset += 17
+	resp.FrameType = data[offset]
+	offset++
+	resp.PacketType = data[offset]
+	offset++
+	resp.FrameNo = data[offset]
+	offset++
+	resp.CommandStatus = data[offset]
+	offset++
+
+	// 末尾 3B：CRC16(2) + End(1)
+	if len(data)-offset != 3 {
+		// 如需更严格，可根据 PacketLength 再校验一次 layout
+	}
+
+	// CRC 一般按大端存；如果失败再尝试小端
+	crcBE := binary.BigEndian.Uint16(data[len(data)-3 : len(data)-1])
+	// crcLE := binary.LittleEndian.Uint16(data[len(data)-3 : len(data)-1])
+	resp.CRC16 = crcBE
+
+	resp.End = data[len(data)-1]
 	if resp.End != 0x96 {
 		return nil, fmt.Errorf("报文尾错误: 期望0x96, 实际0x%X", resp.End)
 	}
+
+	// 2) CRC 校验
+	// A) 从 Packet_Length 开始（不含 Sync/CRC/End）
+	// calcA := CRC16(data[2 : len(data)-3])
+	// // B) 从帧头开始（含 Sync，不含 CRC/End）——个别实现会这样
+	// calcB := CRC16(data[0 : len(data)-3])
+
+	// if calcA != crcBE && calcB != crcBE && calcA != crcLE && calcB != crcLE {
+	// 	return nil, fmt.Errorf("CRC 校验失败: 报文CRC(BE)=0x%04X, (LE)=0x%04X, 计算A=0x%04X, 计算B=0x%04X",
+	// 		crcBE, crcLE, calcA, calcB)
+	// }
+
 	return resp, nil
 }
 

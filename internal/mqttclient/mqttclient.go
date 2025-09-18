@@ -53,7 +53,7 @@ type EdgexMessage struct {
 
 // 内层
 type SinkPayload struct {
-	Type      string `json:"Type"`      // sink: 网关自身；sensor: 传感器；updata: 升级数据；
+	Type      string `json:"Type"`      // sink: 网关自身；sensor: 传感器；update: 升级数据；
 	Eid       string `json:"Eid"`       // 模块 EID
 	Timestamp uint64 `json:"Timestamp"` // 世纪秒时间戳
 	Datalen   int    `json:"Datalen"`   // 原始数据长度
@@ -100,17 +100,24 @@ func decodeHexFlexible(s string) ([]byte, error) {
 }
 
 func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
+	// 基本元信息
+	log.Printf("[MQTT] topic=%q qos=%d retained=%v dup=%v payloadLen=%d",
+		msg.Topic(), msg.Qos(), msg.Retained(), msg.Duplicate(), len(msg.Payload()))
+
 	// 解外层
 	var env EdgexMessage
 	if err := json.Unmarshal(msg.Payload(), &env); err != nil {
 		log.Printf("解析 EdgexMessage 失败: %v; payload=%s", err, string(msg.Payload()))
 		return
 	}
+	log.Printf("[OUTER] EdgexMessage: %+v", env)
+
 	pb, err := payloadBytes(env.Payload)
 	if err != nil || len(pb) == 0 {
-		log.Printf("读取内层 payload 失败: %v", err)
+		log.Printf("读取内层 payload 失败: %v (len=%d)", err, len(pb))
 		return
 	}
+	log.Printf("[OUTER] inner payload bytes len=%d preview=%q", len(pb), string(pb))
 
 	// 解内层
 	var sp SinkPayload
@@ -118,6 +125,8 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 		log.Printf("解析 SinkPayload 失败: %v; payload=%s", err, string(pb))
 		return
 	}
+	log.Printf("[INNER] SinkPayload: %+v", sp)
+
 	if sp.Data == "" {
 		log.Printf("数据帧值为空")
 		return
@@ -132,24 +141,27 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	if sp.Datalen >= 0 && sp.Datalen != len(raw) {
 		log.Printf("数据长度(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
 	}
+	log.Printf("[RAW] bytes len=%d hex=%s", len(raw), strings.ToUpper(hex.EncodeToString(raw)))
 
 	// 按类型分流
-	switch strings.ToLower(strings.TrimSpace(sp.Type)) {
-	case "updata": // 升级
+	t := strings.ToLower(strings.TrimSpace(sp.Type))
+	switch t {
+	case "update": // 升级
 		select {
 		case UpgradeRawDataCh <- raw:
+			log.Printf("[DISPATCH] → UpgradeRawDataCh len=%d", len(raw))
 		default:
 			log.Printf("UpgradeRawDataCh 已满，丢弃 len=%d", len(raw))
 		}
 	case "", "sink": // 网关自身参数
 		fallthrough
 	default:
-		// 其它类型
-		if sp.Type != "" && strings.ToLower(sp.Type) != "sink" {
+		if t != "" && t != "sink" {
 			log.Printf("未识别 Type=%q，按常规通道处理", sp.Type)
 		}
 		select {
 		case SinkRawDataCh <- raw:
+			log.Printf("[DISPATCH] → SinkRawDataCh len=%d", len(raw))
 		default:
 			log.Printf("SinkRawDataCh 已满，丢弃 len=%d", len(raw))
 		}
@@ -208,14 +220,33 @@ func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error 
 		ContentType:   "application/json",
 	}
 
-	// 5) 序列化并发布
+	// —— 调试打印（结构体 & 关键字段）——
+	log.Printf("[PUB] topic=%q type=%q eid=%q datalen(bytes)=%d hexlen(chars)=%d",
+		topic, sp.Type, sp.Eid, sp.Datalen, len(sp.Data))
+	log.Printf("[PUB] SinkPayload: %+v", sp)
+	log.Printf("[PUB] Headers: ApiVersion=%s CorrelationID=%s RequestID=%s ContentType=%s",
+		env.ApiVersion, env.CorrelationID, env.RequestID, env.ContentType)
+
+	// 5) 序列化并发布（同时打印 JSON）
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)
 	}
+	if pretty, e := json.MarshalIndent(env, "", "  "); e == nil {
+		log.Printf("[PUB] JSON body:\n%s", string(pretty))
+	} else {
+		// 兜底：万一缩进失败也给出原始 JSON
+		log.Printf("[PUB] JSON body(compact): %s", string(body))
+	}
+
 	token := client.Publish(topic, 0, false, body)
 	token.Wait()
-	return token.Error()
+	if err := token.Error(); err != nil {
+		log.Printf("[PUB] publish error: %v", err)
+		return err
+	}
+	log.Printf("[PUB] publish ok → topic=%q bytes=%d", topic, len(body))
+	return nil
 }
 
 func Close(ms uint) {

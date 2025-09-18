@@ -182,8 +182,8 @@ deviceResources:
       readWrite: "W"       
       units: ""
       defaultValue: "0"   
-  - name: "Upgrade_Query"  # 升级
-    isHidden: false
+  - name: "Upgrade"  # 升级
+    isHidden: true
     description: "0未开启 1升级"
     properties:
       valueType: "Int8"    
@@ -207,6 +207,12 @@ deviceResources:
       units: ""            
       defaultValue: "{}"     
 deviceCommands:
+  -
+    name: "Command_Upgrade_Query"
+    readWrite: "W"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Upgrade", defaultValue: "0" }
   -
     name: "Command_Time_Parameter_Query"
     readWrite: "W"

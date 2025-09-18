@@ -8,7 +8,7 @@ import (
 )
 
 func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]interface{}) {
-	d.lc.Infof("异步上传值为%#v", values)
+	// d.lc.Infof("异步上传值为%#v", values)
 
 	if len(values) == 0 {
 		d.lc.Infof("异步上传没有要上报的值")

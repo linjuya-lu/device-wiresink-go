@@ -14,7 +14,7 @@ func startHealthCheckLoop() {
 		for range ticker.C {
 			now := time.Now().UnixNano()
 
-			// 设备名称
+			// 设备名
 			config.Mu.RLock()
 			deviceNames := make([]string, 0, len(config.ValuesMap))
 			for dev := range config.ValuesMap {
@@ -35,7 +35,7 @@ func startHealthCheckLoop() {
 				if !ok1 || !ok2 {
 					continue
 				}
-				// 是否超时： now - lastTs > 2 * period 秒
+				// 判断是否超时： now - lastTs > 2 * period 秒
 				deadline := int64(period) * 2 * int64(time.Second)
 				newState := uint8(0)
 				if now-lastTs > deadline {

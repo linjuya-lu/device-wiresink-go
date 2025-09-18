@@ -37,15 +37,6 @@ deviceList:
       custom:
         location: /dev/ttyUSB0
         baudRate: "115200"
-  - name: "Data-Demo"
-    profileName: "Data-Demo-Profile"
-    description: "数据上传demo"
-    labels:
-      - test
-    protocols:
-      custom:
-        location: /dev/ttyUSB0
-        baudRate: "115200"
   - name: "Sink-Node"
     profileName: "Sink-Node-Profile"
     description: "汇源汇聚节点"

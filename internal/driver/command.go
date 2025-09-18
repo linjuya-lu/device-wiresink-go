@@ -314,27 +314,25 @@ func (d *WireSinkDriver) report(dev, stage string, err error) {
 	}
 }
 
-// 轮询等待某分片的 Acked=true；支持 ctx 取消与超时
-func waitSubAck(ctx context.Context, subNo uint16, timeout time.Duration) error {
+// 轮询等待全局 ACK==1，支持 ctx 取消 & 超时
+func waitAck(ctx context.Context, timeout time.Duration) error {
+	ticker := time.NewTicker(10 * time.Millisecond) // 轮询间隔
 	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	tick := time.NewTicker(10 * time.Millisecond) // 轻量轮询
-	defer tick.Stop()
+	defer func() {
+		ticker.Stop()
+		timer.Stop()
+	}()
 
 	for {
-		// 已收到 ACK
-		if st, ok := config.Frames.Get(subNo); ok && st.Acked {
-			return nil
-		}
-
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-timer.C:
-			return fmt.Errorf("wait ack timeout: sub=%d", subNo)
-		case <-tick.C:
-			// 继续下一轮
+			return fmt.Errorf("等待ACK超时(%s)", timeout)
+		case <-ticker.C:
+			if config.GetAck() == 1 {
+				return nil
+			}
 		}
 	}
 }
@@ -359,7 +357,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	copy(sensorID[:], eidBytes)
 
 	// 固件读取
-	filePath := "./file/fireware.hpk"
+	filePath := "./file/HJWG-20250731.hpk"
 	fw, err := readFirmwareBytes(filePath)
 	if err != nil {
 		return fmt.Errorf("读取固件失败: %w", err)
@@ -380,7 +378,8 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 
 	//升级请求
 	meta := frameparser.UpgradeMeta{
-		EID:          config.EidStr,
+		// EID:          config.EidStr,
+		EID:          "HY_HJWG_202500002",
 		FrameNo:      frameNo,
 		FrameType:    frameparser.FrameTypeControl, // 0x03
 		PacketType:   frameparser.PacketTypeB1,     // 0xB1
@@ -398,10 +397,10 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	mu2.Lock()
 	readyFlag = 0 //未就绪
 	mu2.Unlock()
-	relay.SendFrame("updata", config.EidStr, pktReq)
+	relay.SendFrame("update", config.EidStr, pktReq)
 
 	// 等设备就绪
-	if err := waitReady(ctx, 10*time.Second); err != nil {
+	if err := waitReady(ctx, 1000*time.Second); err != nil {
 		return err
 	}
 	d.lc.Infof("设备应答就绪，开始传输数据... (总包数=%d)", totalPackets)
@@ -420,14 +419,14 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 		if err != nil {
 			return fmt.Errorf("BuildUpgradeDataPacket sub=%d 失败: %w", subNo, err)
 		}
-
-		if err := relay.SendFrame("updata", config.EidStr, pktData); err != nil {
+		config.SetAck(false)
+		if err := relay.SendFrame("update", config.EidStr, pktData); err != nil {
 			return fmt.Errorf("send frame sub=%d: %w", subNo, err)
 		}
 
-		// 阻塞等待ACK，超时退出
-		const ackWait = 2 * time.Second
-		if err := waitSubAck(ctx, subNo, ackWait); err != nil {
+		// 轮询等待 ACK==1；若超时/取消则返回
+		const ackWait = 200 * time.Second
+		if err := waitAck(ctx, ackWait); err != nil {
 			d.lc.Errorf("sub=%d 等待ACK超时(%s): %v", subNo, ackWait, err)
 			return err
 		}
@@ -484,10 +483,10 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 				return fmt.Errorf("补包发送失败 sub=%d: %w", subNo, err)
 			}
 
-			// 仅等待一次 ACK，超时直接退出
+			// 轮询等待 ACK==1；若超时/取消则返回
 			const ackWait = 2 * time.Second
-			if err := waitSubAck(ctx, subNo, ackWait); err != nil {
-				d.lc.Errorf("补包 sub=%d 等待ACK超时(%s): %v", subNo, ackWait, err)
+			if err := waitAck(ctx, ackWait); err != nil {
+				d.lc.Errorf("sub=%d 等待ACK超时(%s): %v", subNo, ackWait, err)
 				return err
 			}
 		}

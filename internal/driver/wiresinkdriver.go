@@ -2,7 +2,6 @@ package driver
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math"
@@ -27,7 +26,7 @@ type WireSinkDriver struct {
 	locker  sync.Mutex
 	sdk     interfaces.DeviceServiceSDK
 
-	upgMu     sync.Mutex
+	upgMu     sync.Mutex //异步升级专业锁
 	upgrading map[string]context.CancelFunc
 	progCh    chan UpgradeProgress // 未实现：进度/结果上报
 
@@ -49,8 +48,8 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	d.sdk = sdk
 	d.lc = sdk.LoggingClient()
 	d.asyncCh = sdk.AsyncValuesChannel()
-	//MQTT初始化
-	brokerURL := "tcp://172.16.19.101:1883"
+	//MQTT初始化参数
+	brokerURL := "tcp://192.168.75.137:1883"
 	host, _ := os.Hostname()
 	clientID := fmt.Sprintf("Initialize wiresink-%s-%d", host, os.Getpid())
 
@@ -59,10 +58,15 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 		return fmt.Errorf("Initialize 初始化 MQTT 客户端失败: %w", err)
 	}
 	mqttclient.MqttClient = client
+
+	if d.upgrading == nil {
+		d.upgrading = make(map[string]context.CancelFunc)
+	}
 	return nil
 }
 
 func (d *WireSinkDriver) Start() error {
+	//元信息文件目录
 	devicesYAML := "../cmd/res/devices/devices.yaml"
 	profilesDir := "../cmd/res/profiles"
 
@@ -70,70 +74,70 @@ func (d *WireSinkDriver) Start() error {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
 
-	// 主题订阅
+	// MQTT订阅
 	if err := mqttclient.SubscribeData(mqttclient.MqttClient, "edgex/service/request/device_wiresink/up", 0); err != nil {
 		return err
 	}
 
-	// 升级报文分发协程（可取消）
+	// 升级报文解析协程
 	d.upgCtx, d.upgCancel = context.WithCancel(context.Background())
 	go d.runUpgradeDispatcher(d.upgCtx)
 
-	// 解协程
+	// 业务数据解析协程
 	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting)
 
-	// 分片解析
+	// 业务数据分片解析协程
 	go func() {
 		if err := frameparser.ShardingParser(frameparser.SDUCh); err != nil {
 			d.lc.Errorf("Start 分片解析 异常退出: %v", err)
 		}
 	}()
 
-	// EID 和设备名映射
+	// EID、设备名映射
 	config.UpdateSensorMapping()
 
 	startHealthCheckLoop() // 健康检查
 
-	d.lc.Infof("Start 有线汇聚类边代已启动")
+	d.lc.Infof("有线汇聚服务已启动......")
 	return nil
 }
 
 func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[string]models.ProtocolProperties, reqs []dsModels.CommandRequest) (res []*dsModels.CommandValue, err error) {
 	d.locker.Lock()
 	defer d.locker.Unlock()
-	d.lc.Infof("HandleReadCommands : 设备=%s, 请求资源数=%d", deviceName, len(reqs))
+	d.lc.Infof("上层读取命令 : 设备=%s, 资源数=%d", deviceName, len(reqs))
 
 	values, ok := config.GetDeviceValues(deviceName)
 	if !ok {
-		return nil, fmt.Errorf("HandleReadCommands 设备 %s 未找到或无可用值", deviceName)
+		return nil, fmt.Errorf(" 设备 %s 未找到或无可用值", deviceName)
 	}
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
-		// 路由信息
+		// 如果是请求路由
 		if resName == "topologyDiagram" {
 			topo := config.GetTopoList()
-			fmt.Printf("HandleReadCommands topo:%s", topo)
+			fmt.Printf("拓扑路由:%s", topo)
 			cv, cerr := dsModels.NewCommandValue(
 				resName,
 				common.ValueTypeObject,
 				topo,
 			)
 			if cerr != nil {
-				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+				return nil, fmt.Errorf("NewCommandValue函数 失败: %w", cerr)
 			}
 			res = append(res, cv)
 			continue
 		}
-		// 其他资源
+		// 常规资源
 		val, exists := values[resName]
 		if !exists {
-			return nil, fmt.Errorf("HandleReadCommands 设备 %s 上未找到资源 %s 的值", deviceName, resName)
+			return nil, fmt.Errorf(" 设备 %s 上未找到资源 %s 的值", deviceName, resName)
 		}
 		cv, err := makeCV(resName, req.Type, val)
 		if err != nil {
 			return nil, err
 		}
-		d.lc.Infof("HandleReadCommands 读取值: %s.%s = %v", deviceName, resName, val)
+		d.lc.Infof("HandleReadCommands函数 读取值: %s.%s = %v", deviceName, resName, val)
 		res = append(res, cv)
 	}
 	return res, nil
@@ -153,7 +157,7 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 		resName := req.DeviceResourceName
 		cv := params[i]
 		v, _ := cv.Int8Value()
-		d.lc.Infof("HandleWriteCommands Int8Value = %d", v)
+		d.lc.Infof("[WRITE] #%d Resource=%s", i, resName)
 		// 时间查询
 		if resName == "Time_Parameter_Query" && v == 1 {
 			if err := d.handleTimeParameterQuery(deviceName); err != nil {
@@ -197,7 +201,8 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 			}
 		}
 		// 升级
-		if resName == "Upgrade_Query" && v == 1 {
+		if resName == "Upgrade" && v == 1 {
+			fmt.Print("111111111111111111111111111")
 			config.Frames.Clear() // 清帧状态表
 
 			_ = d.startUpgradeAsync(deviceName)
@@ -532,20 +537,29 @@ func (d *WireSinkDriver) runUpgradeDispatcher(ctx context.Context) {
 	}
 }
 
-// 升级报文解析：升级准备、补包、状态
+// 升级请求响应、升级补包、升级状态解析
 func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
-	if len(data) < 24 {
+	if len(data) < 24 { // 至少能取到 pktType(22) + End(最后1B)
 		return fmt.Errorf("帧过短: %d", len(data))
 	}
-	// 头尾检查
-	if binary.BigEndian.Uint16(data[0:2]) != 0x5AA5 {
-		return fmt.Errorf("sync 非 0x5AA5")
-	}
-	if data[len(data)-1] != 0x96 {
-		return fmt.Errorf("end 非 0x96")
+
+	// 头校验：同时接受 5A A5 / A5 5A
+	beHeader := data[0] == 0x5A && data[1] == 0xA5
+	leHeader := data[0] == 0xA5 && data[1] == 0x5A
+	if !beHeader && !leHeader {
+		return fmt.Errorf("sync 非 0x5AA5: %02X %02X", data[0], data[1])
 	}
 
+	// 尾校验
+	if data[len(data)-1] != 0x96 {
+		return fmt.Errorf("end 非 0x96: %02X", data[len(data)-1])
+	}
+
+	// 调试：打印前几个字节和类型
 	pktType := data[22]
+	d.lc.Debugf("[UPG] header=%s len=%d pktType=0x%02X raw[0:16]=% X",
+		map[bool]string{true: "5A A5"}[beHeader], len(data), pktType, data[:min(16, len(data))])
+
 	switch pktType {
 	case 0xB1: // 升级请求响应
 		resp, err := frameparser.ParseUpgradeResponse(data)
@@ -553,7 +567,15 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 			return fmt.Errorf("ParseUpgradeResponse: %w", err)
 		}
 		d.lc.Infof("B1 响应: FrameNo=%d Status=0x%X", resp.FrameNo, resp.CommandStatus)
-		// TODO: 通知状态机
+
+		// 写入准备就绪标志
+		mu2.Lock()
+		if resp.CommandStatus == 0xFF {
+			readyFlag = 1
+		} else {
+			readyFlag = 0
+		}
+		mu2.Unlock()
 
 	case 0xB4: // 补包请求
 		cp, err := frameparser.ParseComplementPacket(data)
@@ -561,18 +583,22 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 			return fmt.Errorf("ParseComplementPacket: %w", err)
 		}
 		dev := asciiTrim(cp.CMD_ID[:])
-		// 登记补包
 		frameparser.CompReg.Set(dev, cp.ComplementPackSum, cp.ComplementPackNo)
-		d.lc.Infof("B4 补包: dev=%s sum=%d nos=%v file=%s", dev, cp.ComplementPackSum, cp.ComplementPackNo, cp.FileName)
+		d.lc.Infof("B4 补包: dev=%s sum=%d nos=%v file=%s",
+			dev, cp.ComplementPackSum, cp.ComplementPackNo, cp.FileName)
 
 	case 0xD1: // 升级状态
-		st, err := frameparser.ParseUpgradeStatus(data)
-		if err != nil {
-			return fmt.Errorf("ParseUpgradeStatus: %w", err)
-		}
-		dev := asciiTrim(st.CMD_ID[:])
-		d.lc.Infof("D1 状态: dev=%s state=%d desc=%q", dev, st.DeviceState, st.Description)
-		// TODO: 推送到业务层
+		config.SetAck(true)
+		// st, err := frameparser.ParseUpgradeStatus(data)
+		// if err != nil {
+		// 	return fmt.Errorf("ParseUpgradeStatus: %w", err)
+		// }
+		// dev := asciiTrim(st.CMD_ID[:])
+		// d.lc.Infof("D1 状态: dev=%s state=%d desc=%q", dev, st.DeviceState, st.Description)
+		// if st.DeviceState == 2 { // 升级中 → 置 ACK
+		// 	config.Frames.SetAcked(uint16(st.FrameNo), true)
+		// 	d.lc.Infof("ACK 置位: no=%d -> true", st.FrameNo)
+		// }
 
 	default:
 		d.lc.Warnf("未知升级报文类型: 0x%X", pktType)
@@ -580,7 +606,14 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 	return nil
 }
 
-// 把 17 字节 ASCII 的 CMD_ID 去掉尾部 0
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// ASCII码去尾部0
 func asciiTrim(b []byte) string {
 	n := len(b)
 	for n > 0 && b[n-1] == 0 {
