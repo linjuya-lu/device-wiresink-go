@@ -202,7 +202,6 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 		}
 		// 升级
 		if resName == "Upgrade" && v == 1 {
-			fmt.Print("111111111111111111111111111")
 			config.Frames.Clear() // 清帧状态表
 
 			_ = d.startUpgradeAsync(deviceName)
