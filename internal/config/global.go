@@ -2,6 +2,9 @@ package config
 
 import "sync"
 
+// TCP端口
+var UpgradeTCPPort uint32 = 12345 // TODO: 启动时从配置/环境变量覆盖
+
 // 写通道
 var WriteChan = make(chan []byte, 100)
 

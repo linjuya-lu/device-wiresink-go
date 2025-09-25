@@ -147,17 +147,13 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 	d.locker.Lock()
 	defer d.locker.Unlock()
 
-	d.lc.Infof("HandleWriteCommands 调用: 设备=%s, 写入请求数=%d", deviceName, len(reqs))
+	d.lc.Infof("获取命令: 设备=%s, 请求数=%d", deviceName, len(reqs))
 
-	if len(reqs) != len(params) {
-		d.lc.Errorf("HandleWriteCommands 请求数与参数数不匹配: %d vs %d", len(reqs), len(params))
-		return fmt.Errorf("HandleWriteCommands 请求数与参数数不匹配")
-	}
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
 		cv := params[i]
 		v, _ := cv.Int8Value()
-		d.lc.Infof("[WRITE] #%d Resource=%s", i, resName)
+		d.lc.Infof("常规命令 %d Resource=%s", i, resName)
 		// 时间查询
 		if resName == "Time_Parameter_Query" && v == 1 {
 			if err := d.handleTimeParameterQuery(deviceName); err != nil {
@@ -203,10 +199,8 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 		// 升级
 		if resName == "Upgrade" && v == 1 {
 			config.Frames.Clear() // 清帧状态表
-
 			_ = d.startUpgradeAsync(deviceName)
 		}
-
 	}
 	return nil
 }

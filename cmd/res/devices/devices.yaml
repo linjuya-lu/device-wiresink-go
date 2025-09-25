@@ -1,33 +1,4 @@
 deviceList:
-  - name: "Friendcom-TempHumi-Sensor"
-    profileName: "Friendcom-TempHumi-Profile"
-    description: "友讯达温湿度传感器"
-    labels:
-      - temp-humi
-    protocols:
-      mqtt:
-        Schema: "tcp"
-        Host: "172.16.19.101"
-        Port: "1883"
-        ClientId: "lora-agent-client"
-  - name: "Friendcom-Water-Level-Sensor"
-    profileName: "Friendcom-Water-Level-Profile"
-    description: "友讯达超声波水位传感器"
-    labels:
-      - water-level
-    protocols:
-      custom:
-        location: /dev/ttyUSB0
-        baudRate: "115200"
-  - name: "Command-Demo"
-    profileName: "Command-Demo-Profile"
-    description: "控制命令汇总"
-    labels:
-      - test
-    protocols:
-      custom:
-        location: /dev/ttyUSB0
-        baudRate: "115200"
   - name: "Edge-Node"
     profileName: "Edge-Proxy-Profile"
     description: "边缘接入节点"

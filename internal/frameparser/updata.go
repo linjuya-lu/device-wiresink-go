@@ -238,8 +238,6 @@ func UpgradeCompleted(cmdID string, frameNo byte, subNo uint16, data []byte) ([]
 }
 
 const (
-	syncHi  = 0x5A
-	syncLo  = 0xA5
 	endMark = 0x96
 
 	FrameTypeControl = 0x03 // 控制报文

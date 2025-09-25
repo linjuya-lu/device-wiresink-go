@@ -186,30 +186,41 @@ func normalizeHex(s string) (string, []byte, error) {
 	return s, b, err
 }
 
-// 发布
+// 默认 QoS=1，超时 10s
 func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error {
-	// 1) 预处理 HEX
+	return PublishSinkCommandWithQoS(client, topic, typ, eid, data /*qos*/, 1, 10*time.Second)
+}
+
+func Close(ms uint) {
+	if MqttClient != nil && MqttClient.IsConnectionOpen() {
+		MqttClient.Disconnect(ms)
+	}
+}
+
+// 带 QoS 和 超时的发布
+func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string, qos byte, timeout time.Duration) error {
+	// 数据转换
 	normHex, raw, err := normalizeHex(data)
 	if err != nil {
 		return fmt.Errorf("invalid hex data: %w", err)
 	}
 
-	// 2) 规范化 type
+	// 上报类型
 	t := strings.TrimSpace(typ)
 	if t == "" {
 		t = "sink"
 	}
 
-	// 3) 内层 payload
+	// 内层 payload
 	sp := SinkPayload{
 		Type:      t,
 		Eid:       eid,
 		Timestamp: uint64(time.Now().Unix()),
 		Datalen:   len(raw),                 // 字节数
-		Data:      strings.ToUpper(normHex), // 规范为大写
+		Data:      strings.ToUpper(normHex), // 数据
 	}
 
-	// 4) 外层消息
+	// 外层
 	now := time.Now().UnixNano()
 	env := EdgexMessage{
 		ApiVersion:    "v3",
@@ -220,14 +231,7 @@ func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error 
 		ContentType:   "application/json",
 	}
 
-	// —— 调试打印（结构体 & 关键字段）——
-	log.Printf("[PUB] topic=%q type=%q eid=%q datalen(bytes)=%d hexlen(chars)=%d",
-		topic, sp.Type, sp.Eid, sp.Datalen, len(sp.Data))
-	log.Printf("[PUB] SinkPayload: %+v", sp)
-	log.Printf("[PUB] Headers: ApiVersion=%s CorrelationID=%s RequestID=%s ContentType=%s",
-		env.ApiVersion, env.CorrelationID, env.RequestID, env.ContentType)
-
-	// 5) 序列化并发布（同时打印 JSON）
+	// 日志
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)
@@ -235,22 +239,18 @@ func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error 
 	if pretty, e := json.MarshalIndent(env, "", "  "); e == nil {
 		log.Printf("[PUB] JSON body:\n%s", string(pretty))
 	} else {
-		// 兜底：万一缩进失败也给出原始 JSON
 		log.Printf("[PUB] JSON body(compact): %s", string(body))
 	}
 
-	token := client.Publish(topic, 0, false, body)
-	token.Wait()
+	// 发布（带 QoS & 超时等待 PUBACK）
+	token := client.Publish(topic, qos, false, body)
+	if !token.WaitTimeout(timeout) {
+		return fmt.Errorf("publish timeout: topic=%s qos=%d timeout=%s", topic, qos, timeout)
+	}
 	if err := token.Error(); err != nil {
-		log.Printf("[PUB] publish error: %v", err)
-		return err
+		return fmt.Errorf("publish error: %w", err)
 	}
-	log.Printf("[PUB] publish ok → topic=%q bytes=%d", topic, len(body))
-	return nil
-}
 
-func Close(ms uint) {
-	if MqttClient != nil && MqttClient.IsConnectionOpen() {
-		MqttClient.Disconnect(ms)
-	}
+	log.Printf("[PUB] publish ok → topic=%q bytes=%d qos=%d", topic, len(body), qos)
+	return nil
 }
