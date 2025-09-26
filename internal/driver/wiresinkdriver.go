@@ -562,13 +562,13 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 		d.lc.Infof("B1 响应: FrameNo=%d Status=0x%X", resp.FrameNo, resp.CommandStatus)
 
 		// 写入准备就绪标志
-		mu2.Lock()
+		frameparser.MuReady.Lock()
 		if resp.CommandStatus == 0xFF {
-			readyFlag = 1
+			frameparser.ReadyFlag = 1
 		} else {
-			readyFlag = 0
+			frameparser.ReadyFlag = 0
 		}
-		mu2.Unlock()
+		frameparser.MuReady.Unlock()
 
 	case 0xB4: // 补包请求
 		cp, err := frameparser.ParseComplementPacket(data)

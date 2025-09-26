@@ -1,10 +1,10 @@
 package frameparser
 
 import (
-	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
-	"io"
+	"strings"
 	"sync"
 
 	"github.com/linjuya-lu/device-wiresink-go/internal/config"
@@ -39,19 +39,19 @@ const (
 
 // ===== 你的全局标志（示例）=====
 var (
-	muReady   sync.Mutex
-	readyFlag uint8 // 0 未就绪；1 已就绪；2 失败（可选）
+	MuReady   sync.RWMutex
+	ReadyFlag uint8 // 0 未就绪；1 已就绪；2 失败（可选）
 )
 
 // 置就绪标志
 func setReady(ok bool) {
-	muReady.Lock()
+	MuReady.Lock()
 	if ok {
-		readyFlag = 1
+		ReadyFlag = 1
 	} else {
-		readyFlag = 0 // 也可置 2 表示失败
+		ReadyFlag = 0 // 也可置 2 表示失败
 	}
-	muReady.Unlock()
+	MuReady.Unlock()
 }
 
 // 你已有的 ACK 标志接口
@@ -70,60 +70,91 @@ type frame struct {
 	End            byte     // len-1
 }
 
-// 计算 CRC16（占位；替换为你的具体实现，如 Modbus/IBM/X25）
-func crc16(data []byte) uint16 {
-	// TODO: 根据协议替换具体多项式
-	var crc uint16
-	for _, b := range data {
-		crc ^= uint16(b)
-	}
-	return crc
-}
-
-// 尝试从缓冲中解出一帧；返回帧/消耗字节数/错误
-func TryDecodeOne(buf []byte) (fr *frame, used int, err error) {
-	// 寻找同步头 5A A5
-	i := bytes.Index(buf, []byte{syncHi, syncLo})
-	if i < 0 {
-		return nil, len(buf), io.EOF // 整段都无 sync，全部丢弃
-	}
-	if len(buf[i:]) < 6 { // 至少要有头+长度+基本字段
-		return nil, i, io.ErrUnexpectedEOF // 只丢弃 sync 前垃圾
+func ParseFrameBytes(b []byte) (*frame, error) {
+	const endTag = 0x96
+	if len(b) < 7 {
+		return nil, fmt.Errorf("short frame: %d", len(b))
 	}
 
-	// 长度（大端）
-	pktLen := binary.BigEndian.Uint16(buf[i+2 : i+4])
-	if int(pktLen) > len(buf[i:]) {
-		return nil, i, io.ErrUnexpectedEOF // 数据不完整，保留等待更多字节
+	// 头+端序
+	be := true
+	switch {
+	case b[0] == 0x5A && b[1] == 0xA5:
+		be = true
+	case b[0] == 0xA5 && b[1] == 0x5A:
+		be = false
+	default:
+		return nil, fmt.Errorf("bad sync: %02X %02X", b[0], b[1])
 	}
 
-	raw := buf[i : i+int(pktLen)]
-	// 末尾检查 End
-	if raw[len(raw)-1] != endTag {
-		// 不是一帧，跳过当前 sync 继续找
-		return nil, i + 2, fmt.Errorf("bad end tag")
+	// 协议中的 Packet_Length（=载荷长度，从 CMD_ID 起算）
+	var plen uint16
+	if be {
+		plen = binary.BigEndian.Uint16(b[2:4])
+	} else {
+		plen = binary.LittleEndian.Uint16(b[2:4])
 	}
 
-	// CRC 校验：从 Sync 到 CRC 前一字节
-	body := raw[:len(raw)-3]
-	crc := binary.BigEndian.Uint16(raw[len(raw)-3 : len(raw)-1])
-	if crc != crc16(body) {
-		return nil, i + int(pktLen), fmt.Errorf("crc mismatch")
+	// 计算期望总长 & 实际载荷长度
+	totalExpected := int(2 + 2 + plen + 2 + 1) // 4 + plen + 3
+	if len(b) < totalExpected {
+		return nil, fmt.Errorf("incomplete frame: have=%d expect=%d (plen=%d)", len(b), totalExpected, plen)
+	}
+	if b[len(b)-1] != endTag {
+		return nil, fmt.Errorf("bad end tag: 0x%02X", b[len(b)-1])
 	}
 
-	// 解析字段
+	// // CRC（字段本身通常 BE 存放）
+	// crcGot := binary.BigEndian.Uint16(b[len(b)-3 : len(b)-1])
+
+	// // 尝试多种 CRC 范围（任一通过即可）
+	// okCRC := false
+	// // B) 从 CMD_ID 起，长度=报文声明的 plen
+	// if 4+int(plen) <= len(b)-3 && crc16(b[4:4+int(plen)]) == crcGot {
+	// 	okCRC = true
+	// }
+	// // A) 从 Packet_Length 字段起到 CRC 前
+	// if !okCRC && crc16(b[2:len(b)-3]) == crcGot {
+	// 	okCRC = true
+	// }
+	// // C) 兼容“报文声明长度错误”的情况：用“实际载荷长度”验
+	// actualPlen := len(b) - 7 // = len - (Sync2+Len2) - (CRC2+End1)
+	// if !okCRC && actualPlen >= 0 && 4+actualPlen <= len(b)-3 {
+	// 	if crc16(b[4:4+actualPlen]) == crcGot {
+	// 		okCRC = true
+	// 	}
+	// }
+	// if !okCRC {
+	// 	return nil, fmt.Errorf("crc mismatch: got=0x%04X", crcGot)
+	// }
+
+	// 固定头边界
+	if 4+17+1+1+1 > len(b)-3 {
+		return nil, fmt.Errorf("frame too short for header fields")
+	}
+
 	var f frame
-	f.SyncHi, f.SyncLo = raw[0], raw[1]
-	f.PacketLen = pktLen
-	copy(f.CmdID[:], raw[4:4+17])
-	f.FrameType = raw[21]
-	f.PacketType = raw[22]
-	f.FrameNo = raw[23]
-	f.Payload = raw[24 : len(raw)-3]
-	f.CRC16 = crc
+	f.SyncHi, f.SyncLo = b[0], b[1]
+	f.PacketLen = plen // ← 这里实际上是“载荷长度(=Packet_Length)”，建议把注释改掉
+	copy(f.CmdID[:], b[4:4+17])
+	f.FrameType = b[21]
+	f.PacketType = b[22]
+	f.FrameNo = b[23]
+
+	// payload：从 24 起直到 CRC 前
+	if 24 <= len(b)-3 {
+		f.Payload = b[24 : len(b)-3]
+	}
+	// f.CRC16 = crcGot
 	f.End = endTag
 
-	return &f, i + int(pktLen), nil
+	// 如需调试“报文声明长度 vs 实际长度”的不一致，可在此处打印：
+	// if len(b) != totalExpected {
+	//     fmt.Printf("[WARN] length mismatch: len(b)=%d expect=%d (plen=%d actualPlen=%d)\n",
+	//         len(b), totalExpected, plen, actualPlen)
+	// }
+
+	return &f, nil
 }
 
 // 表2：升级请求响应（Packet_Type=0xB1）
@@ -173,4 +204,46 @@ func HandleComplementReq(f *frame, deviceName string) {
 		nos = append(nos, n)
 	}
 	CompReg.Set(deviceName, sum, nos)
+}
+
+// 仅打印关键信息：头部 + B1/D1 的关键字段
+func PrintFrameBrief(fr *frame) {
+	id := strings.TrimRight(string(fr.CmdID[:]), "\x00")
+	fmt.Printf("[FRAME] ID=%s FT=0x%02X PT=0x%02X NO=%d payload=%d CRC=0x%04X\n",
+		id, fr.FrameType, fr.PacketType, fr.FrameNo, len(fr.Payload), fr.CRC16)
+
+	switch fr.PacketType {
+	case PktUpgradeResp: // 0xB1
+		var st byte
+		if len(fr.Payload) >= 1 {
+			st = fr.Payload[len(fr.Payload)-1] // B1 的 payload 就 1 字节：Command_Status
+		}
+		txt := map[byte]string{0xFF: "成功", 0x00: "失败"}[st]
+		if txt == "" {
+			txt = fmt.Sprintf("未知(0x%02X)", st)
+		}
+		fmt.Printf("[B1] Command_Status=%s (0x%02X)\n", txt, st)
+
+	case PktUpgradeState: // 0xD1
+		if len(fr.Payload) >= 1 {
+			state := fr.Payload[0] // Device_State
+			txt := map[byte]string{
+				1: "空闲", 2: "升级中", 3: "升级完成", 4: "升级失败",
+			}[state]
+			if txt == "" {
+				txt = fmt.Sprintf("未知(%d)", state)
+			}
+			fmt.Printf("[D1] Device_State=%s (%d)\n", txt, state)
+		}
+		// 可选：再打印描述长度/十六进制预览
+		if len(fr.Payload) >= 2 {
+			sz := int(fr.Payload[1])
+			end := 2 + sz
+			if end > len(fr.Payload) {
+				end = len(fr.Payload)
+			}
+			desc := fr.Payload[2:end]
+			fmt.Printf("[D1] DescSize=%d DescHex=%s\n", sz, strings.ToUpper(hex.EncodeToString(desc)))
+		}
+	}
 }

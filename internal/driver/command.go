@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"path/filepath"
@@ -19,12 +20,8 @@ import (
 
 	"github.com/linjuya-lu/device-wiresink-go/internal/config"
 	"github.com/linjuya-lu/device-wiresink-go/internal/frameparser"
+	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
 	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
-)
-
-var (
-	mu2       sync.RWMutex
-	readyFlag int
 )
 
 type UpgradeProgress struct {
@@ -347,93 +344,188 @@ func ensureUpgradeTCPServer(cfgPort uint32) (uint32, error) {
 	return actual, nil
 }
 
-func handleUpgradeConn(c net.Conn) {
-	setUpgradeConn(c) // 告诉发送端：连接已就绪
+// 十六进制 + ASCII，按 16 字节一行
+func dumpHex1(tag string, b []byte, base int) {
+	const per = 16
+	for off := 0; off < len(b); off += per {
+		end := off + per
+		if end > len(b) {
+			end = len(b)
+		}
+		chunk := b[off:end]
+		ascii := make([]byte, len(chunk))
+		for i, c := range chunk {
+			if c >= 0x20 && c <= 0x7E {
+				ascii[i] = c
+			} else {
+				ascii[i] = '.'
+			}
+		}
+		log.Printf("%s %04X: % X  | %s", tag, base+off, chunk, ascii)
+	}
+}
 
+// 仅基于“帧头 + 帧尾(0x96)”摘出一整帧；不依赖 Packet_Length。
+// 返回：frame 切片、应丢弃的字节 used、是否需要更多数据 needMore、错误。
+func spliceOneFrame(acc []byte) (frame []byte, used int, needMore bool, err error) {
+	// 最小“看起来像一帧”的总长度：Sync2 + Len2 + CMD_ID17 + FT1 + PT1 + NO1 + CRC2 + End1 = 27+1=28
+	// （B1/D1 的 payload 至少会有 1B，因此 28 是个保守最小值）
+	const minTotal = 28
+	if len(acc) < 2 {
+		return nil, 0, true, nil // 可能只有半个同步头，继续等
+	}
+
+	// 找同步头（谁先出现用谁）
+	findSync := func(b []byte) (start int, be bool) {
+		i := bytes.Index(b, []byte{0x5A, 0xA5}) // BE
+		j := bytes.Index(b, []byte{0xA5, 0x5A}) // LE
+		switch {
+		case i >= 0 && (j < 0 || i < j):
+			return i, true
+		case j >= 0:
+			return j, false
+		default:
+			return -1, true
+		}
+	}
+
+	start, _ := findSync(acc)
+	if start < 0 {
+		// 保留最后 1B（可能是半个同步头：0x5A/0xA5），避免把半个头丢掉
+		last := acc[len(acc)-1]
+		if last == 0x5A || last == 0xA5 {
+			return nil, len(acc) - 1, true, nil
+		}
+		return nil, len(acc), false, io.EOF
+	}
+
+	// 有头，开始扫尾标 0x96；起点跳过最小头部（避免把 payload 里的零散 0x96 过早匹配）
+	scanFrom := start + (4 + 17 + 1 + 1 + 1) // = 到 Frame_No 之后
+	if scanFrom < start+4 {
+		scanFrom = start + 4
+	}
+	if scanFrom >= len(acc) {
+		return nil, start, true, nil // 还没够到能找尾的位置
+	}
+
+	// 向后找 0x96
+	rel := bytes.IndexByte(acc[scanFrom:], 0x96)
+	if rel < 0 {
+		// 没有尾标：丢掉头前垃圾，保留从头开始的半帧
+		return nil, start, true, nil
+	}
+	endIdx := scanFrom + rel // 指向 0x96
+
+	// 校验“总长 ≥ 最小帧长”
+	if endIdx-start+1 < minTotal {
+		// 太短，不像合法帧；跳过当前同步头的两个字节，继续找
+		return nil, start + 2, false, fmt.Errorf("frame too short: total=%d", endIdx-start+1)
+	}
+
+	// 取 [start, endIdx] 作为完整帧（含 0x96）
+	f := acc[start : endIdx+1]
+	return f, endIdx + 1, false, nil
+}
+
+func handleUpgradeConn(c net.Conn) {
+	setUpgradeConn(c)
 	defer c.Close()
-	_ = c.SetReadDeadline(time.Now().Add(5 * time.Minute)) // 防永久阻塞，按需调整
+
+	const idle = 5 * time.Minute
+	_ = c.SetReadDeadline(time.Now().Add(idle))
 	br := bufio.NewReaderSize(c, 8<<10)
 
-	// 可作为 deviceName 的 key：用 CMD_ID 解析出的字符串；
-	// 若你已有 deviceName 参数，也可以直接用外部值。
 	var lastDeviceName string
-
 	var acc []byte
-	for {
-		chunk := make([]byte, 4096)
-		n, err := br.Read(chunk)
-		if err != nil {
-			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
-				return
-			}
-			// 超时可续读
-			var ne net.Error
-			if errors.As(err, &ne) && ne.Timeout() {
-				_ = c.SetReadDeadline(time.Now().Add(5 * time.Minute))
-				continue
-			}
-			// 其它错误：退出
-			return
-		}
-		acc = append(acc, chunk[:n]...)
 
-		// 尝试解帧（可能一包多帧/半包）
-		for {
-			fr, used, e := frameparser.TryDecodeOne(acc)
-			if e == io.ErrUnexpectedEOF {
-				// 数据不完整，等更多
-				// 丢弃 used 之前的垃圾（通常为 sync 前字节）
-				if used > 0 && used < len(acc) {
-					acc = acc[used:]
+	for {
+		buf := make([]byte, 4096)
+		n, err := br.Read(buf)
+
+		if n > 0 {
+			dumpHex1("RX-chunk", buf[:n], 0)
+			acc = append(acc, buf[:n]...)
+
+			// ——一次性把 acc 里能凑成的所有帧都取出来——
+			for {
+
+				frame, used, needMore, e := spliceOneFrame(acc)
+
+				if needMore {
+					// 半帧：丢掉 sync 前垃圾，保留从 sync 开始
+					if used > 0 && used < len(acc) {
+						acc = acc[used:]
+					}
+					break
 				}
-				break
-			}
-			if e == io.EOF {
-				// 没有 sync，丢弃全部
-				acc = acc[:0]
-				break
-			}
-			if e != nil && fr == nil {
-				// 非致命错误，丢弃本帧，继续
-				if used > 0 && used <= len(acc) {
+				if e == io.EOF {
+					// 没有头：清空
+					acc = acc[:0]
+					break
+				}
+				if e != nil && frame == nil {
+					// 坏帧：至少推进 used（若无 used 则推进 1）
+					if used <= 0 || used > len(acc) {
+						used = 1
+					}
 					acc = acc[used:]
 					continue
 				}
-				acc = acc[:0]
+
+				// 成功摘到完整帧：从缓存剥离
+				if used > 0 && used <= len(acc) {
+					acc = acc[used:]
+				} else {
+					acc = acc[:0]
+				}
+				fmt.Printf("1111111111")
+				// ——到这里才交给解析器（你原来的 TryDecodeOne / ParseXxx）——
+				fr, perr := frameparser.ParseFrameBytes(frame)
+				if perr != nil {
+					log.Printf("[PARSE] err: %v", perr)
+					continue
+				}
+
+				// 记录设备名
+				if dev := strings.TrimRight(string(fr.CmdID[:]), "\x00"); dev != "" {
+					lastDeviceName = dev
+				}
+				frameparser.PrintFrameBrief(fr)
+				// 分发
+				switch fr.PacketType {
+				case frameparser.PktUpgradeResp: // 0xB1
+					fmt.Printf("222222222222")
+					frameparser.HandleUpgradeResp(fr)
+				case frameparser.PktUpgradeState: // 0xD1
+					fmt.Printf("333333333333333")
+					frameparser.HandleUpgradeState(fr)
+				case frameparser.PktComplementReq: // 0xB4
+					fmt.Printf("44444444444444")
+					key := lastDeviceName
+					if key == "" {
+						key = "unknown"
+					}
+					frameparser.HandleComplementReq(fr, key)
+				default:
+					// 其它类型…
+				}
+			}
+		}
+
+		// 读错误最后处理；确保 n>0 的字节已利用
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
+				// 连接关闭前可能还有残留半帧：可选 flush 一次
+				if len(acc) > 0 {
+					_, _, _, _ = spliceOneFrame(acc) // 触发一次提取（可按需处理）
+				}
+				return
+			}
+			if ne, ok := err.(net.Error); ok && ne.Timeout() {
+				_ = c.SetReadDeadline(time.Now().Add(idle))
 				continue
 			}
-
-			// 成功解析出一帧
-			if used > 0 && used <= len(acc) {
-				acc = acc[used:]
-			} else {
-				acc = acc[:0]
-			}
-
-			// CMD_ID 作为 deviceName（去掉尾部 0）
-			dev := string(bytes.TrimRight(fr.CmdID[:], "\x00"))
-			if dev != "" {
-				lastDeviceName = dev
-			}
-
-			// 分发处理
-			switch fr.PacketType {
-			case frameparser.PktUpgradeResp: // 0xB1
-				frameparser.HandleUpgradeResp(fr)
-
-			case frameparser.PktUpgradeState: // 0xD1
-				frameparser.HandleUpgradeState(fr)
-
-			case frameparser.PktComplementReq: // 0xB4
-				key := lastDeviceName
-				if key == "" {
-					key = "unknown"
-				}
-				frameparser.HandleComplementReq(fr, key)
-
-			default:
-				// 其它类型按需扩展
-			}
+			return
 		}
 	}
 }
@@ -468,17 +560,20 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 		}
 		d.lc.Infof("upgrade TCP server listening on port=%d", actualPort)
 
-		// 端口写入激活报文 Data（unsigned int 4B），按协议端序选择
-		var pktReq [4]byte
-		binary.BigEndian.PutUint32(pktReq[:], uint32(actualPort)) // 如果协议是小端就改 LittleEndian
-
-		// 发送 MQTT 激活报文（QoS=1 + 发布超时）
-		if err := relay.SendFrameWithQoS("update", config.EidStr, pktReq[:], 1, 10*time.Second); err != nil {
+		if err := relay.SendPortDecWithQoS(
+			mqttclient.MqttClient,                        // 你项目里的全局 client
+			"edgex/server/response/device_wiresink/down", // 你原先使用的下行 topic
+			"update",
+			config.EidStr,
+			uint32(actualPort),
+			0,
+			10*time.Second,
+		); err != nil {
 			d.report(deviceName, "failed", err)
-			d.lc.Errorf("publish upgrade activation failed: %v", err)
+			d.lc.Errorf("publish upgrade activation (decimal) failed: %v", err)
 			return
 		}
-		d.lc.Infof("publish upgrade activation ok (QoS=1, port=%d) for %s", actualPort, deviceName)
+		d.lc.Infof("publish upgrade activation ok (DEC port=%d) for %s", actualPort, deviceName)
 
 		// TCP 升级流程
 		if err := d.handleUpgradeQuery(ctx, deviceName); err != nil {
@@ -570,14 +665,43 @@ func waitUpgradeConn(ctx context.Context) (net.Conn, error) {
 	}
 }
 
+// 十六进制 + ASCII 双视图转储，按 16 字节一行
+func dumpHex(tag string, b []byte) {
+	const per = 16
+	for off := 0; off < len(b); off += per {
+		end := off + per
+		if end > len(b) {
+			end = len(b)
+		}
+		chunk := b[off:end]
+
+		// ASCII 可视化
+		ascii := make([]byte, len(chunk))
+		for i, c := range chunk {
+			if c >= 0x20 && c <= 0x7E { // 可打印
+				ascii[i] = c
+			} else {
+				ascii[i] = '.'
+			}
+		}
+		log.Printf("%s %04X: % X  | %s", tag, off, chunk, ascii)
+	}
+	log.Printf("%s len=%d bytes", tag, len(b))
+}
+
 // 发送一帧（带写超时、处理短写）
 func sendTCPFrame(ctx context.Context, data []byte) error {
 	c, err := waitUpgradeConn(ctx)
 	if err != nil {
 		return fmt.Errorf("wait tcp conn: %w", err)
 	}
+
+	// 发送前转储
+	dumpHex("TX", data)
+
 	// 写超时（可按需调整）
 	_ = c.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	left := len(data)
 	for len(data) > 0 {
 		n, err := c.Write(data)
 		if err != nil {
@@ -585,6 +709,9 @@ func sendTCPFrame(ctx context.Context, data []byte) error {
 		}
 		data = data[n:]
 	}
+	sent := left
+	log.Printf("TX done: wrote %d bytes", sent)
+	config.SetAck(false)
 	return nil
 }
 
@@ -645,9 +772,9 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 		return fmt.Errorf("发送升级请求报文失败: %w", err)
 	}
 
-	mu2.Lock()
-	readyFlag = 0 //未就绪
-	mu2.Unlock()
+	frameparser.MuReady.Lock()
+	frameparser.ReadyFlag = 0 //未就绪
+	frameparser.MuReady.Unlock()
 
 	//TCP发送
 	if err := sendTCPFrame(ctx, pktReq); err != nil {
@@ -655,7 +782,9 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	}
 
 	// 等设备就绪
-	if err := waitReady(ctx, 1000*time.Second); err != nil {
+	fmt.Printf("等待升级中....")
+	if err := waitReady(ctx, 10000*time.Second); err != nil {
+		fmt.Printf("等待失败....")
 		return err
 	}
 	d.lc.Infof("设备应答就绪，开始传输数据... (总包数=%d)", totalPackets)
@@ -669,15 +798,38 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 		}
 
 		subNo := uint16(i + 1)
-
+		frameNo++
 		pktData, err := frameparser.BuildUpgradeDataPacket(config.EidStr, frameNo, subNo, chunk)
 		if err != nil {
 			return fmt.Errorf("BuildUpgradeDataPacket sub=%d 失败: %w", subNo, err)
 		}
 
-		config.SetAck(false)
+		fmt.Printf("[UPGRADE] TX 子包号=%d 长度=%d (frameNo=%d)\n", subNo, len(chunk), frameNo)
+
+		for {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			config.Mu3.Lock()
+			ready := (config.AckReceived == 1)
+			config.Mu3.Unlock()
+			if ready {
+				break
+			}
+			time.Sleep(5 * time.Millisecond) // 短睡眠避免忙等
+		}
+
+		// 关闸：进入等待ACK状态（不要把发送放在锁里）
+		config.Mu3.Lock()
+		config.AckReceived = 0
+		config.Mu3.Unlock()
+
 		// 直接 TCP 发送
 		if err := sendTCPFrame(ctx, pktData); err != nil {
+			// 失败时开闸，避免后续卡死（看你是否要继续重试/直接返回）
+			config.Mu3.Lock()
+			config.AckReceived = 1
+			config.Mu3.Unlock()
 			return fmt.Errorf("发送数据帧(TCP)失败 sub=%d: %w", subNo, err)
 		}
 
@@ -688,8 +840,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			return err
 		}
 	}
-
-	d.lc.Infof("初次发送完毕，进入补包处理/结束确认阶段")
+	fmt.Printf("发送完毕，进行结束补包阶段")
 
 	const (
 		compCollectWindow = 2 * time.Second
@@ -697,8 +848,12 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	)
 	for round := 1; round <= maxCompRounds; round++ {
 		// 发送结束报文
-		if err := frameparser.CompReg.SendEndAndConfirm(ctx, fileName, frameNo); err != nil {
-			return err
+		pktEnd, err := frameparser.CompReg.BuildUpgradeEndPacket(config.EidStr, fileName, frameNo)
+		if err != nil {
+			return fmt.Errorf("构建结束报文失败: %w", err)
+		}
+		if err := sendTCPFrame(ctx, pktEnd); err != nil {
+			return fmt.Errorf("发送结束报文(TCP)失败: %w", err)
 		}
 
 		select {
@@ -755,9 +910,9 @@ func waitReady(ctx context.Context, maxWait time.Duration) error {
 			return ctx.Err()
 		default:
 		}
-		mu2.RLock()
-		ready := (readyFlag == 1)
-		mu2.RUnlock()
+		frameparser.MuReady.RLock()
+		ready := (frameparser.ReadyFlag == 1)
+		frameparser.MuReady.RUnlock()
 		if ready {
 			return nil
 		}

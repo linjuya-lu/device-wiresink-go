@@ -1,11 +1,13 @@
 package mqttclient
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -168,24 +170,6 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-// 预处理：去空白与常见分隔符、去 0x 前缀；确保偶数长度；
-func normalizeHex(s string) (string, []byte, error) {
-	r := strings.NewReplacer(
-		" ", "", "\t", "", "\n", "", "\r", "",
-		",", "", ";", "", ":", "", "-", "",
-		"0x", "", "0X", "",
-	)
-	s = r.Replace(strings.TrimSpace(s))
-	if len(s) == 0 {
-		return "", nil, errors.New("hex string is empty")
-	}
-	if len(s)%2 != 0 {
-		return "", nil, fmt.Errorf("hex length is odd: %d", len(s))
-	}
-	b, err := hex.DecodeString(s)
-	return s, b, err
-}
-
 // 默认 QoS=1，超时 10s
 func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error {
 	return PublishSinkCommandWithQoS(client, topic, typ, eid, data /*qos*/, 1, 10*time.Second)
@@ -197,30 +181,86 @@ func Close(ms uint) {
 	}
 }
 
-// 带 QoS 和 超时的发布
-func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string, qos byte, timeout time.Duration) error {
-	// 数据转换
-	normHex, raw, err := normalizeHex(data)
-	if err != nil {
-		return fmt.Errorf("invalid hex data: %w", err)
+// 解析 data（可能是 "12345" 或 "39300000"/"0x39300000"）为数值 val 和 4B 原始字节 raw。
+// 关键：十六进制路径按“原始字节转储”理解，不当作大端整数。
+func parseDataToUint32(data string, order binary.ByteOrder) (uint32, []byte, error) {
+	s := strings.TrimSpace(data)
+	if s == "" {
+		return 0, nil, fmt.Errorf("empty data")
 	}
 
-	// 上报类型
+	// 纯十进制
+	isDec := true
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			isDec = false
+			break
+		}
+	}
+	if isDec {
+		u, err := strconv.ParseUint(s, 10, 32)
+		if err != nil {
+			return 0, nil, fmt.Errorf("parse decimal: %w", err)
+		}
+		val := uint32(u)
+		raw := make([]byte, 4)
+		order.PutUint32(raw, val)
+		return val, raw, nil
+	}
+
+	// 十六进制（原始字节）
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		s = s[2:]
+	}
+	if len(s)%2 == 1 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return 0, nil, fmt.Errorf("decode hex: %w", err)
+	}
+	if len(b) > 4 {
+		return 0, nil, fmt.Errorf("hex too long for uint32: %d bytes", len(b))
+	}
+
+	// 补齐到4字节：LE 补到右侧，BE 补到左侧
+	if len(b) < 4 {
+		if order == binary.LittleEndian {
+			b = append(b, make([]byte, 4-len(b))...)
+		} else {
+			pad := make([]byte, 4-len(b))
+			b = append(pad, b...)
+		}
+	}
+
+	val := order.Uint32(b) // 直接按端序取值，不翻转
+	return val, b, nil
+}
+
+// 带 QoS 和 超时的发布：Data 以十进制字符串输出（"12345"）
+func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string, qos byte, timeout time.Duration) error {
+	order := binary.LittleEndian // 你的协议是小端
+
+	// ⬇️ 这三行替换你原来的 normalizeHex 流程
+	val, raw, err := parseDataToUint32(data, order)
+	if err != nil {
+		return fmt.Errorf("invalid data: %w", err)
+	}
+
 	t := strings.TrimSpace(typ)
 	if t == "" {
 		t = "sink"
 	}
 
-	// 内层 payload
 	sp := SinkPayload{
 		Type:      t,
 		Eid:       eid,
 		Timestamp: uint64(time.Now().Unix()),
-		Datalen:   len(raw),                 // 字节数
-		Data:      strings.ToUpper(normHex), // 数据
+		Datalen:   len(raw),                            // 4
+		Data:      strconv.FormatUint(uint64(val), 10), // ★ 十进制字符串 "12345"
+		// 若 Data 是 uint32 类型：Data: val
 	}
 
-	// 外层
 	now := time.Now().UnixNano()
 	env := EdgexMessage{
 		ApiVersion:    "v3",
@@ -231,18 +271,11 @@ func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string,
 		ContentType:   "application/json",
 	}
 
-	// 日志
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)
 	}
-	if pretty, e := json.MarshalIndent(env, "", "  "); e == nil {
-		log.Printf("[PUB] JSON body:\n%s", string(pretty))
-	} else {
-		log.Printf("[PUB] JSON body(compact): %s", string(body))
-	}
 
-	// 发布（带 QoS & 超时等待 PUBACK）
 	token := client.Publish(topic, qos, false, body)
 	if !token.WaitTimeout(timeout) {
 		return fmt.Errorf("publish timeout: topic=%s qos=%d timeout=%s", topic, qos, timeout)
@@ -251,6 +284,7 @@ func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string,
 		return fmt.Errorf("publish error: %w", err)
 	}
 
-	log.Printf("[PUB] publish ok → topic=%q bytes=%d qos=%d", topic, len(body), qos)
+	log.Printf("[PUB] ok → topic=%q qos=%d dec=%d hex=%s",
+		topic, qos, val, strings.ToUpper(hex.EncodeToString(raw)))
 	return nil
 }

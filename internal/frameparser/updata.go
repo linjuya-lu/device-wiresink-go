@@ -3,7 +3,6 @@ package frameparser
 // 升级帧
 import (
 	"bytes"
-	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -12,9 +11,6 @@ import (
 	"sort"
 	"sync"
 	"unicode/utf8"
-
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
-	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
 )
 
 var endByte = 0x96
@@ -131,14 +127,17 @@ func calcTotalSize(path string) (int, error) {
 	return int(fi.Size()), nil
 }
 
-// 升级数据报文
+// 升级数据报文 (Packet_Type = 0xB2，所有 2B/4B 字段小端序)
 func BuildUpgradeDataPacket(cmdID string, frameNo byte, subNo uint16, data []byte) ([]byte, error) {
-	syncHi := 0x5A
-	syncLo := 0xA5
-	frameTypeData := 0x03
-	packetTypeData := 0xB2
+	const (
+		syncHi           = 0x5A
+		syncLo           = 0xA5
+		frameTypeData    = 0x03
+		packetTypeData   = 0xB2
+		endByte          = 0x96
+		maxPacketDataLen = 400
+	)
 
-	maxPacketDataLen := 400 // Data 最大 400 字节
 	if len(data) == 0 {
 		return nil, errors.New("data is empty")
 	}
@@ -148,39 +147,44 @@ func BuildUpgradeDataPacket(cmdID string, frameNo byte, subNo uint16, data []byt
 
 	var buf bytes.Buffer
 
-	// 1) 固定头
-	buf.WriteByte(byte(syncHi)) // Sync
-	buf.WriteByte(byte(syncLo))
+	// 1) Sync
 
-	// Packet_Length 占位
+	buf.WriteByte(syncLo)
+	buf.WriteByte(syncHi)
+
+	// 2) Packet_Length 占位（2B，小端）
 	plenPos := buf.Len()
 	buf.Write([]byte{0x00, 0x00})
 
-	// 2) 序号3~10：CMD_ID ~ Data
+	// 3) 固定头/文本字段（无端序）
 	writeASCIIFixed(&buf, cmdID, 17)            // CMD_ID (17)
-	buf.WriteByte(byte(frameTypeData))          // Frame_Type (1)
-	buf.WriteByte(byte(packetTypeData))         // Packet_Type (1)
+	buf.WriteByte(frameTypeData)                // Frame_Type (1)
+	buf.WriteByte(packetTypeData)               // Packet_Type (1)
 	buf.WriteByte(frameNo)                      // Frame_No (1)
-	writeCStringFixed(&buf, "fireware.hex", 32) // File_Name (32, '\0'结尾)
-	writeU16BE(&buf, subNo)                     // Subpacket_No (2)
-	writeU16BE(&buf, uint16(len(data)))         // Packet_Size (2)
-	buf.Write(data)                             // Data (N<=400)
+	writeCStringFixed(&buf, "fireware.hex", 32) // File_Name (32, 若非 C-string 改为 writeASCIIFixed)
 
-	// 3) CRC16: 覆盖 CMD_ID ~ Data
-	p3to10 := buf.Bytes()[plenPos+2:] // 跳过 Sync+Packet_Length
-	crc := CRC16(p3to10)
-	writeU16BE(&buf, crc) // CRC16 (2)
+	// 4) 数值字段（全部小端）
+	writeU16LE(&buf, subNo)             // Subpacket_No (2, LE)
+	writeU16LE(&buf, uint16(len(data))) // Packet_Size (2, LE)
+	buf.Write(data)                     // Data (N<=400)
 
-	// 4) End
-	buf.WriteByte(byte(endByte)) // End (1)
+	// 5) 回填 Packet_Length（不含 Sync/End，含 CRC16），小端回填
+	body := buf.Bytes()
+	packetLen := uint16((buf.Len() - (plenPos + 2)) + 2) // +2 预留 CRC16 自身
+	body[plenPos] = byte(packetLen)                      // low
+	body[plenPos+1] = byte(packetLen >> 8)               // high
 
-	// 5) 回填 Packet_Length = 序号3~11的长度 = (当前长度 - End(1) - 开头4字节)
-	packetLen := uint16(buf.Len() - 1 - (plenPos + 2))
-	pkt := buf.Bytes()
-	pkt[plenPos] = byte(packetLen >> 8)
-	pkt[plenPos+1] = byte(packetLen)
+	// 6) CRC16 覆盖范围：从 Packet_Length 开始到 CRC 前（含 Packet_Length，不含 CRC/End）
+	crcRange := body[plenPos:buf.Len()]
+	crc := CRC16(crcRange)
 
-	return pkt, nil
+	// 7) CRC16 小端写入
+	writeU16LE(&buf, crc)
+
+	// 8) End
+	buf.WriteByte(endByte)
+
+	return buf.Bytes(), nil
 }
 
 // 升级结束报文
@@ -262,6 +266,19 @@ type UpgradeMeta struct {
 }
 
 // 升级请求
+// 小端写 16/32 位
+func writeU16LE(buf *bytes.Buffer, v uint16) {
+	buf.WriteByte(byte(v))      // low
+	buf.WriteByte(byte(v >> 8)) // high
+}
+func writeU32LE(buf *bytes.Buffer, v uint32) {
+	buf.WriteByte(byte(v))       // b0
+	buf.WriteByte(byte(v >> 8))  // b1
+	buf.WriteByte(byte(v >> 16)) // b2
+	buf.WriteByte(byte(v >> 24)) // b3
+}
+
+// 升级请求（所有 2B/4B 字段：低字节在前）
 func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 	if meta.EID == "" {
 		return nil, errors.New("EID empty")
@@ -290,40 +307,42 @@ func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	// 1) Sync
-	buf.WriteByte(syncHi)
-	buf.WriteByte(syncLo)
 
-	// 2) Packet_Length 占位（2B，大端；稍后按“payload长度”回填）
+	// 1) Sync (固定 5A A5)
+	buf.WriteByte(syncLo)
+	buf.WriteByte(syncHi)
+
+	// 2) Packet_Length 占位（2B，小端）
 	lenPos := buf.Len()
 	buf.Write([]byte{0x00, 0x00})
 
-	// 3) 头部与文本字段（无大小端）
+	// 3) 文本/头字段（无端序）
 	writeFixedASCII(&buf, meta.EID, cmdIDLen)   // CMD_ID (17)
 	buf.WriteByte(meta.FrameType)               // Frame_Type (1)
 	buf.WriteByte(meta.PacketType)              // Packet_Type (1)
 	buf.WriteByte(meta.FrameNo)                 // Frame_No (1)
 	writeFixedASCII(&buf, fileName, fileNameSz) // File_Name (32)
 
-	// 记录“payload”起点：从 File_Type 开始
-	payloadStart := buf.Len()
+	// 4) 数值字段（全部小端）
+	buf.WriteByte(meta.FileType)                // File_Type (1)
+	writeU32LE(&buf, meta.TotalSize)            // Total_Size (4, LE)
+	writeU16LE(&buf, uint16(meta.FrameLen))     // Frame_Len (2, LE)
+	writeU16LE(&buf, uint16(meta.TotalPackets)) // Total_Packets (2, LE)
 
-	// 4) payload 数值字段（红框外）—— 都按大端
-	buf.WriteByte(meta.FileType)                        // File_Type (1)
-	writeU32(&buf, binary.BigEndian, meta.TotalSize)    // Total_Size (4, BE)
-	writeU16(&buf, binary.BigEndian, meta.FrameLen)     // Frame_Len (2, BE)
-	writeU16(&buf, binary.BigEndian, meta.TotalPackets) // Total_Packets (2, BE)
-
-	// 5) 回填 Packet_Length：= payload 长度（File_Type..Total_Packets），不含 CRC/End
+	// 5) 回填 Packet_Length（从 CMD_ID 到 CRC16，含 CRC，不含 End），小端回填
 	body := buf.Bytes()
-	payloadLen := uint16(buf.Len() - payloadStart)
-	binary.BigEndian.PutUint16(body[lenPos:], payloadLen)
+	packetLen := uint16((buf.Len() - (lenPos + 2)) + 2) // +2 预留 CRC 自身
+	body[lenPos] = byte(packetLen)                      // low
+	body[lenPos+1] = byte(packetLen >> 8)               // high
 
-	// 6) CRC：从 Packet_Length 开始到 CRC 前（包含 Packet_Length 与 payload，不含 Sync/CRC/End）
-	crc := CRC16(body[lenPos:])
-	writeU16(&buf, binary.BigEndian, crc) // CRC16 (2, BE)
+	// 6) CRC16 计算范围：从 Packet_Length 开始到 CRC 前（含 Packet_Length，不含 CRC/End）
+	crcRange := body[lenPos:buf.Len()]
+	crc := CRC16(crcRange)
 
-	// 7) End
+	// 7) CRC16 小端写入（低字节在前）
+	writeU16LE(&buf, crc)
+
+	// 8) End
 	buf.WriteByte(endMark) // 0x96
 
 	return buf.Bytes(), nil
@@ -422,16 +441,16 @@ func normalizeNos(nos []uint16) []uint16 {
 }
 
 // 发送升级结束报文
-func (r *ComplementRegistry) SendEndAndConfirm(ctx context.Context, fileName string, frameNo byte) error {
+// 升级结束报文（0xB3），2B 字段一律小端序
+func (r *ComplementRegistry) BuildUpgradeEndPacket(eid, fileName string, frameNo byte) ([]byte, error) {
 	const (
 		syncHi        = 0x5A
 		syncLo        = 0xA5
 		endByte       = 0x96
-		frameTypeCtl  = 0x03 // 见表：Frame_Type(0x03)
-		packetTypeEnd = 0xB3 // 升级结束报文
+		frameTypeCtl  = 0x03
+		packetTypeEnd = 0xB3
 	)
 
-	// ——小工具：若你已有同名函数，可删掉这些内联实现——
 	writeASCIIFixed := func(buf *bytes.Buffer, s string, n int) {
 		b := []byte(s)
 		if len(b) >= n {
@@ -446,7 +465,6 @@ func (r *ComplementRegistry) SendEndAndConfirm(ctx context.Context, fileName str
 	writeCStringFixed := func(buf *bytes.Buffer, s string, n int) {
 		b := []byte(s)
 		if len(b) >= n {
-			// 至少保留 '\0'
 			if n > 0 {
 				buf.Write(b[:n-1])
 				buf.WriteByte(0x00)
@@ -454,59 +472,52 @@ func (r *ComplementRegistry) SendEndAndConfirm(ctx context.Context, fileName str
 			return
 		}
 		buf.Write(b)
-		buf.WriteByte(0x00) // C-string 结尾
+		buf.WriteByte(0x00)
 		if pad := n - len(b) - 1; pad > 0 {
 			buf.Write(make([]byte, pad))
 		}
 	}
-	writeU16BE := func(buf *bytes.Buffer, v uint16) {
-		buf.WriteByte(byte(v >> 8))
-		buf.WriteByte(byte(v))
+	// 小端写 16 位
+	writeU16LE := func(buf *bytes.Buffer, v uint16) {
+		buf.WriteByte(byte(v))      // low
+		buf.WriteByte(byte(v >> 8)) // high
 	}
 
 	var buf bytes.Buffer
 
 	// 1) Sync
-	buf.WriteByte(byte(syncHi))
-	buf.WriteByte(byte(syncLo))
+	buf.WriteByte(syncLo)
+	buf.WriteByte(syncHi)
 
-	// 2) Packet_Length（占位）
+	// 2) Packet_Length 占位（2B，小端）
 	plenPos := buf.Len()
 	buf.Write([]byte{0x00, 0x00})
 
-	// 3) CMD_ID（17，ASCII，右侧 0 填充）
-	writeASCIIFixed(&buf, config.EidStr, 17)
+	// 3) CMD_ID..File_Name
+	writeASCIIFixed(&buf, eid, 17) // CMD_ID (17)
+	buf.WriteByte(frameTypeCtl)    // Frame_Type (1)
+	buf.WriteByte(packetTypeEnd)   // Packet_Type (1)
+	buf.WriteByte(frameNo)         // Frame_No (1)
+	base := filepath.Base(fileName)
+	writeCStringFixed(&buf, base, 32) // File_Name (32)
 
-	// 4) Frame_Type（1）
-	buf.WriteByte(byte(frameTypeCtl))
+	// 4) 先回填 Packet_Length（不含 Sync/End，含 CRC16），小端回填
+	body := buf.Bytes()
+	packetLen := uint16((buf.Len() - (plenPos + 2)) + 2) // +2 预留 CRC 自身
+	body[plenPos] = byte(packetLen)                      // low
+	body[plenPos+1] = byte(packetLen >> 8)               // high
 
-	// 5) Packet_Type（1）= 0xB3
-	buf.WriteByte(byte(packetTypeEnd))
+	// 5) CRC16：从 Packet_Length 起到 CRC 前（含 Packet_Length，不含 CRC/End），小端写入
+	crcRange := body[plenPos:buf.Len()]
+	crc := CRC16(crcRange)
+	writeU16LE(&buf, crc)
 
-	// 6) Frame_No（1）
-	buf.WriteByte(frameNo)
+	// 6) End
+	buf.WriteByte(endByte)
 
-	// 7) File_Name（32，ASCII，以 '\0' 结尾，右侧补 0）
-	base := filepath.Base(fileName) // 只发文件名
-	writeCStringFixed(&buf, base, 32)
-
-	// 8) CRC16（2）——覆盖范围：从 CMD_ID 开始到 File_Name 结束
-	body := buf.Bytes()[plenPos+2:]
-	crc := CRC16(body) // 直接复用你已有的查表 CRC16
-	writeU16BE(&buf, crc)
-
-	// 9) End（1）
-	buf.WriteByte(byte(endByte))
-
-	// 回填 Packet_Length = 序号3~8的长度（不含 Sync/End；含 CRC16）
-	packetLen := uint16(buf.Len() - 1 - (plenPos + 2))
-	pkt := buf.Bytes()
-	pkt[plenPos] = byte(packetLen >> 8)
-	pkt[plenPos+1] = byte(packetLen)
-
-	// 发送
-	relay.SendFrame("updata", config.EidStr, pkt)
-	return nil
+	out := make([]byte, buf.Len())
+	copy(out, buf.Bytes())
+	return out, nil
 }
 
 //---------------------------------------------------升级解析函数部分---------------------------------------------------
