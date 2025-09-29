@@ -559,8 +559,8 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 		d.lc.Infof("upgrade TCP server listening on port=%d", actualPort)
 
 		if err := relay.SendPortDecWithQoS(
-			mqttclient.MqttClient,                        // 你项目里的全局 client
-			"edgex/server/response/device_wiresink/down", // 你原先使用的下行 topic
+			mqttclient.MqttClient,
+			"edgex/server/response/device_wiresink/down",
 			"update",
 			config.EidStr,
 			uint32(actualPort),
@@ -752,7 +752,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	fileName := filepath.Base(filePath)
 	var frameNo byte = 0 // 包序号
 
-	// ===== 升级请求帧 =====
+	//升级请求帧
 	meta := frameparser.UpgradeMeta{
 		EID:          "HY_HJWG_202500002",
 		FrameNo:      frameNo,
@@ -787,7 +787,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	}
 	d.lc.Infof("设备应答就绪，开始传输数据... (总包数=%d)", totalPackets)
 
-	// ===== 逐包发送升级数据 =====
+	//  逐包发送升级数据
 	for i, chunk := range chunks {
 		select {
 		case <-ctx.Done():
@@ -817,14 +817,13 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			time.Sleep(5 * time.Millisecond) // 短睡眠避免忙等
 		}
 
-		// 关闸：进入等待ACK状态（不要把发送放在锁里）
+		// 进入等待ACK状态
 		config.Mu3.Lock()
 		config.AckReceived = 0
 		config.Mu3.Unlock()
 
 		// 直接 TCP 发送
 		if err := sendTCPFrame(ctx, pktData); err != nil {
-			// 失败时开闸，避免后续卡死（看你是否要继续重试/直接返回）
 			config.Mu3.Lock()
 			config.AckReceived = 1
 			config.Mu3.Unlock()
@@ -845,7 +844,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 		maxCompRounds     = 10
 	)
 	for round := 1; round <= maxCompRounds; round++ {
-		// 1) 发送结束报文
+		//发送结束报文
 		pktEnd, err := frameparser.CompReg.BuildUpgradeEndPacket("HY_HJWG_202500002", fileName, frameNo)
 		if err != nil {
 			return fmt.Errorf("构建结束报文失败: %w", err)
@@ -854,7 +853,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			return fmt.Errorf("发送结束报文(TCP)失败: %w", err)
 		}
 
-		// 2) 在 compCollectWindow 内轮询，直到收到 ACK（Snapshot 返回 ok）
+		//轮询，直到收到 ACK
 		deadline := time.Now().Add(compCollectWindow)
 		const pollInterval = 80 * time.Millisecond
 
@@ -864,17 +863,17 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			ok  bool
 		)
 		for {
-			// 先看 ctx
+			// 先看上下文
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			default:
 			}
 
-			// Snapshot 只有在 Acked==true 时才 ok==true
+			// 收到 ACK + 数据
 			sum, nos, ok = frameparser.CompReg.Snapshot(deviceName)
 			if ok {
-				break // 收到 ACK + 数据
+				break
 			}
 
 			if time.Now().After(deadline) {
@@ -885,10 +884,10 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			time.Sleep(pollInterval)
 		}
 
-		// ⬇️ 立刻清理该设备的记录（含 ACK 标记与号段）
+		// 清理设备记录
 		frameparser.CompReg.Clear(deviceName)
 
-		// 3) 有补包请求则处理
+		// 补包处理
 		if sum == 0 {
 			d.lc.Infof("设备 %s 无补包请求，本轮结束（round=%d）", deviceName, round)
 			break

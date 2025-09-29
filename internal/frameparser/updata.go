@@ -459,7 +459,7 @@ func (r *ComplementRegistry) Snapshot(deviceName string) (sum uint16, nos []uint
 	return info.Sum, out, true
 }
 
-// 清空指定设备的补包信息（补包完成后调用）
+// 清空指定设备的补包信息
 func (r *ComplementRegistry) Clear(deviceName string) {
 	r.mu.Lock()
 	delete(r.m, deviceName)

@@ -1,13 +1,11 @@
 package mqttclient
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -230,133 +228,4 @@ func Close(ms uint) {
 	if MqttClient != nil && MqttClient.IsConnectionOpen() {
 		MqttClient.Disconnect(ms)
 	}
-}
-
-// 解析 data（可能是 "12345" 或 "39300000"/"0x39300000"）为数值 val 和 4B 原始字节 raw。
-// 关键：十六进制路径按“原始字节转储”理解，不当作大端整数。
-func parseDataToUint32(data string, order binary.ByteOrder) (uint32, []byte, error) {
-	s := strings.TrimSpace(data)
-	if s == "" {
-		return 0, nil, fmt.Errorf("empty data")
-	}
-
-	// 纯十进制
-	isDec := true
-	for _, r := range s {
-		if r < '0' || r > '9' {
-			isDec = false
-			break
-		}
-	}
-	if isDec {
-		u, err := strconv.ParseUint(s, 10, 32)
-		if err != nil {
-			return 0, nil, fmt.Errorf("parse decimal: %w", err)
-		}
-		val := uint32(u)
-		raw := make([]byte, 4)
-		order.PutUint32(raw, val)
-		return val, raw, nil
-	}
-
-	// 十六进制（原始字节）
-	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
-		s = s[2:]
-	}
-	if len(s)%2 == 1 {
-		s = "0" + s
-	}
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		return 0, nil, fmt.Errorf("decode hex: %w", err)
-	}
-	if len(b) > 4 {
-		return 0, nil, fmt.Errorf("hex too long for uint32: %d bytes", len(b))
-	}
-
-	// 补齐到4字节：LE 补到右侧，BE 补到左侧
-	if len(b) < 4 {
-		if order == binary.LittleEndian {
-			b = append(b, make([]byte, 4-len(b))...)
-		} else {
-			pad := make([]byte, 4-len(b))
-			b = append(pad, b...)
-		}
-	}
-
-	val := order.Uint32(b) // 直接按端序取值，不翻转
-	return val, b, nil
-}
-
-// 带 QoS 和 超时的发布：Data 以十进制字符串输出（"12345"）
-// 带 QoS 和超时的发布：Data 以十进制字符串输出（"12345"）
-func PublishSinkCommandWithQoS(
-	client mqtt.Client,
-	topic, typ, eid, data string,
-	qos byte,
-	timeout time.Duration,
-) error {
-	fmt.Printf("99999999999999999999999999999")
-	// 0) 连接与入参快速校验
-	if client == nil || !client.IsConnected() {
-		return fmt.Errorf("mqtt not connected")
-	}
-	topic = strings.TrimSpace(topic)
-	if topic == "" {
-		return fmt.Errorf("empty topic")
-	}
-	t := strings.TrimSpace(typ)
-	if t == "" {
-		t = "sink"
-	}
-	fmt.Printf("8888888888888888888888888888")
-	// 1) 解析 data（允许带空格/常见格式），并给出十进制字符串
-	val, raw, err := parseDataToUint32(strings.TrimSpace(data), binary.LittleEndian)
-	if err != nil {
-		return fmt.Errorf("invalid data %q: %w", data, err)
-	}
-	dataStr := strconv.FormatUint(uint64(val), 10) // 统一十进制字符串
-	fmt.Printf("7777777777777777777777777777777")
-	// 2) 组装 Payload（Datalen 必须与 Data 一致）
-	sp := SinkPayload{
-		Type:      t,
-		Eid:       eid,
-		Timestamp: uint64(time.Now().Unix()),
-		Datalen:   len(dataStr), // ✅ 与 Data 一致
-		Data:      dataStr,
-	}
-
-	now := time.Now().UnixNano()
-	env := EdgexMessage{
-		ApiVersion:    "v3",
-		CorrelationID: fmt.Sprintf("%s-%d", t, now),
-		RequestID:     fmt.Sprintf("req-%d", now),
-		ErrorCode:     0,
-		Payload:       sp,
-		ContentType:   "application/json",
-	}
-	fmt.Printf("66666666666666666666666666666666666666666")
-	// 3) 编码并发布
-	body, err := json.Marshal(env)
-	if err != nil {
-		return fmt.Errorf("marshal edgex message: %w", err)
-	}
-
-	// 如需排查可把 retained 设为 true 方便 MQTTX 立刻看到：client.Publish(topic, qos, true, body)
-	token := client.Publish(topic, qos, false, body)
-
-	if !token.WaitTimeout(timeout) {
-		return fmt.Errorf("publish timeout: topic=%s qos=%d timeout=%s", topic, qos, timeout)
-	}
-	if err := token.Error(); err != nil {
-		return fmt.Errorf("publish error: %w", err)
-	}
-	fmt.Printf("5555555555555555555555555555555555")
-	// 4) 成功日志（含十六进制原值，便于核对）
-	log.Printf("[PUB] ok → topic=%q qos=%d payload=%dB dec=%d hex=%s",
-		topic, qos, len(body), val, strings.ToUpper(hex.EncodeToString(raw)))
-
-	// 你的调试打印
-	fmt.Printf("1111111111")
-	return nil
 }

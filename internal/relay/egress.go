@@ -21,20 +21,6 @@ func SendFrame(srcAddr string, payload []byte) {
 	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", srcAddr, hexStr1)
 }
 
-// 可选 QoS/超时
-func SendFrameWithQoS(typ, srcAddr string, payload []byte, qos byte, timeout time.Duration) error {
-	hexStr := strings.ToUpper(hex.EncodeToString(payload))
-	return mqttclient.PublishSinkCommandWithQoS(
-		mqttclient.MqttClient,
-		downTopic,
-		typ,
-		srcAddr,
-		hexStr,
-		qos,
-		timeout,
-	)
-}
-
 type EdgexMessage struct {
 	ApiVersion    string      `json:"apiVersion"`
 	ReceivedTopic string      `json:"receivedTopic,omitempty"`
