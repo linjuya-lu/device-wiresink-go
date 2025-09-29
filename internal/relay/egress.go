@@ -14,16 +14,11 @@ import (
 // 主题
 const downTopic = "edgex/server/response/device_wiresink/down"
 
-func SendFrame(typ, srcAddr string, payload []byte) error {
-	hexStr := strings.ToUpper(hex.EncodeToString(payload))
-	hexStr = "0x" + hexStr
-	return mqttclient.PublishSinkCommand(
-		mqttclient.MqttClient,
-		downTopic,
-		typ,
-		srcAddr,
-		hexStr,
-	)
+func SendFrame(srcAddr string, payload []byte) {
+
+	hexStr1 := strings.ToUpper(hex.EncodeToString(payload))
+
+	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", srcAddr, hexStr1)
 }
 
 // 可选 QoS/超时

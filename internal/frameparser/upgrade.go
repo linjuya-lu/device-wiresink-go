@@ -191,19 +191,23 @@ func HandleUpgradeState(f *frame) {
 // 表5：补包请求（Packet_Type=0xB4）
 // Payload: File_Name(32) + ComplementPack_Sum(2) + ComplementPack_No(2×N)
 func HandleComplementReq(f *frame, deviceName string) {
-	if len(f.Payload) < 34 { // 32+2 最小
+	if len(f.Payload) < 34 { // 32 + 2 最小长度
 		return
 	}
 	// fileName := string(bytes.TrimRight(f.Payload[:32], "\x00")) // 如需使用文件名
 
 	sum := binary.BigEndian.Uint16(f.Payload[32:34])
 	raw := f.Payload[34:]
-	var nos []uint16
+
+	// 预分配，按偶数字节取 uint16
+	n := len(raw) / 2
+	nos := make([]uint16, 0, n)
 	for i := 0; i+1 < len(raw); i += 2 {
-		n := binary.BigEndian.Uint16(raw[i : i+2])
-		nos = append(nos, n)
+		nos = append(nos, binary.BigEndian.Uint16(raw[i:i+2]))
 	}
-	CompReg.Set(deviceName, sum, nos)
+
+	// 这里调用即视为已收到 ACK
+	CompReg.Set(deviceName, sum, nos, true)
 }
 
 // 仅打印关键信息：头部 + B1/D1 的关键字段

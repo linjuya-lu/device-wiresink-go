@@ -170,9 +170,60 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	}
 }
 
+// 预处理：去空白与常见分隔符、去 0x 前缀；确保偶数长度；
+func normalizeHex(s string) (string, []byte, error) {
+	r := strings.NewReplacer(
+		" ", "", "\t", "", "\n", "", "\r", "",
+		",", "", ";", "", ":", "", "-", "",
+		"0x", "", "0X", "",
+	)
+	s = r.Replace(strings.TrimSpace(s))
+	if len(s) == 0 {
+		return "", nil, errors.New("hex string is empty")
+	}
+	if len(s)%2 != 0 {
+		return "", nil, fmt.Errorf("hex length is odd: %d", len(s))
+	}
+	b, err := hex.DecodeString(s)
+	return s, b, err
+}
+
 // 默认 QoS=1，超时 10s
-func PublishSinkCommand(client mqtt.Client, topic, typ, eid, data string) error {
-	return PublishSinkCommandWithQoS(client, topic, typ, eid, data /*qos*/, 1, 10*time.Second)
+func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
+	//预处理
+	normHex, raw, err := normalizeHex(data)
+	if err != nil {
+		return fmt.Errorf("invalid hex data: %w", err)
+	}
+
+	//内层
+	sp := SinkPayload{
+		Type:      "sink",
+		Eid:       eid,
+		Timestamp: uint64(time.Now().Unix()),
+		Datalen:   len(raw), // 字节数
+		Data:      strings.ToUpper(normHex),
+	}
+
+	//外层
+	env := EdgexMessage{
+		ApiVersion:    "v3",
+		CorrelationID: fmt.Sprintf("sink-%d", time.Now().UnixNano()),
+		RequestID:     fmt.Sprintf("req-%d", time.Now().UnixNano()),
+		ErrorCode:     0,
+		Payload:       sp,
+		ContentType:   "application/json",
+	}
+
+	//序列化并发布
+	body, err := json.Marshal(env)
+	if err != nil {
+		return fmt.Errorf("marshal edgex message: %w", err)
+	}
+
+	token := client.Publish(topic, 0, false, body)
+	token.Wait()
+	return token.Error()
 }
 
 func Close(ms uint) {
@@ -238,27 +289,41 @@ func parseDataToUint32(data string, order binary.ByteOrder) (uint32, []byte, err
 }
 
 // 带 QoS 和 超时的发布：Data 以十进制字符串输出（"12345"）
-func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string, qos byte, timeout time.Duration) error {
-	order := binary.LittleEndian // 你的协议是小端
-
-	// ⬇️ 这三行替换你原来的 normalizeHex 流程
-	val, raw, err := parseDataToUint32(data, order)
-	if err != nil {
-		return fmt.Errorf("invalid data: %w", err)
+// 带 QoS 和超时的发布：Data 以十进制字符串输出（"12345"）
+func PublishSinkCommandWithQoS(
+	client mqtt.Client,
+	topic, typ, eid, data string,
+	qos byte,
+	timeout time.Duration,
+) error {
+	fmt.Printf("99999999999999999999999999999")
+	// 0) 连接与入参快速校验
+	if client == nil || !client.IsConnected() {
+		return fmt.Errorf("mqtt not connected")
 	}
-
+	topic = strings.TrimSpace(topic)
+	if topic == "" {
+		return fmt.Errorf("empty topic")
+	}
 	t := strings.TrimSpace(typ)
 	if t == "" {
 		t = "sink"
 	}
-
+	fmt.Printf("8888888888888888888888888888")
+	// 1) 解析 data（允许带空格/常见格式），并给出十进制字符串
+	val, raw, err := parseDataToUint32(strings.TrimSpace(data), binary.LittleEndian)
+	if err != nil {
+		return fmt.Errorf("invalid data %q: %w", data, err)
+	}
+	dataStr := strconv.FormatUint(uint64(val), 10) // 统一十进制字符串
+	fmt.Printf("7777777777777777777777777777777")
+	// 2) 组装 Payload（Datalen 必须与 Data 一致）
 	sp := SinkPayload{
 		Type:      t,
 		Eid:       eid,
 		Timestamp: uint64(time.Now().Unix()),
-		Datalen:   len(raw),                            // 4
-		Data:      strconv.FormatUint(uint64(val), 10), // ★ 十进制字符串 "12345"
-		// 若 Data 是 uint32 类型：Data: val
+		Datalen:   len(dataStr), // ✅ 与 Data 一致
+		Data:      dataStr,
 	}
 
 	now := time.Now().UnixNano()
@@ -270,21 +335,28 @@ func PublishSinkCommandWithQoS(client mqtt.Client, topic, typ, eid, data string,
 		Payload:       sp,
 		ContentType:   "application/json",
 	}
-
+	fmt.Printf("66666666666666666666666666666666666666666")
+	// 3) 编码并发布
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)
 	}
 
+	// 如需排查可把 retained 设为 true 方便 MQTTX 立刻看到：client.Publish(topic, qos, true, body)
 	token := client.Publish(topic, qos, false, body)
+
 	if !token.WaitTimeout(timeout) {
 		return fmt.Errorf("publish timeout: topic=%s qos=%d timeout=%s", topic, qos, timeout)
 	}
 	if err := token.Error(); err != nil {
 		return fmt.Errorf("publish error: %w", err)
 	}
+	fmt.Printf("5555555555555555555555555555555555")
+	// 4) 成功日志（含十六进制原值，便于核对）
+	log.Printf("[PUB] ok → topic=%q qos=%d payload=%dB dec=%d hex=%s",
+		topic, qos, len(body), val, strings.ToUpper(hex.EncodeToString(raw)))
 
-	log.Printf("[PUB] ok → topic=%q qos=%d dec=%d hex=%s",
-		topic, qos, val, strings.ToUpper(hex.EncodeToString(raw)))
+	// 你的调试打印
+	fmt.Printf("1111111111")
 	return nil
 }

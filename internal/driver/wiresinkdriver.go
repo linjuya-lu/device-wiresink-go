@@ -576,7 +576,7 @@ func (d *WireSinkDriver) handleUpgradeFrame(data []byte) error {
 			return fmt.Errorf("ParseComplementPacket: %w", err)
 		}
 		dev := asciiTrim(cp.CMD_ID[:])
-		frameparser.CompReg.Set(dev, cp.ComplementPackSum, cp.ComplementPackNo)
+		frameparser.CompReg.Set(dev, cp.ComplementPackSum, cp.ComplementPackNo, true)
 		d.lc.Infof("B4 补包: dev=%s sum=%d nos=%v file=%s",
 			dev, cp.ComplementPackSum, cp.ComplementPackNo, cp.FileName)
 

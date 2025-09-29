@@ -177,7 +177,7 @@ func sendAck(sensorKey string, sseq uint8, ackOK bool, pseq uint8) {
 		Check:      CRC16(ackData),
 	}
 	data := ackFrame.Bytes()
-	relay.SendFrame("sink", sensorKey, data)
+	relay.SendFrame(sensorKey, data)
 }
 
 // isStart/PSEQ 首尾判断

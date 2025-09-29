@@ -59,7 +59,7 @@ func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 	reqFrame, _ := frameparser.BuildTimeParamFrame(sensorID, 1, ts)
 
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame("sink", eidStr, reqFrame)
+	relay.SendFrame(eidStr, reqFrame)
 	d.lc.Infof("时间设置 已发送时间设置命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -88,8 +88,8 @@ func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 	copy(sensorID[:], eidBytes)
 	reqFrame, _ := frameparser.BuildResetRequest(sensorID)
 	eidStr, _ := eidValue.(string)
-
-	relay.SendFrame("sink", eidStr, reqFrame)
+	fmt.Printf("44444444444444")
+	relay.SendFrame(eidStr, reqFrame)
 	d.lc.Infof("复位命令 已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -119,7 +119,7 @@ func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
 	copy(sensorID[:], eidBytes)
 	reqFrame, _ := frameparser.BuildTimeParamFrame(sensorID, 0, 0)
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame("sink", eidStr, reqFrame)
+	relay.SendFrame(eidStr, reqFrame)
 	d.lc.Infof("时间参数查询 已发送时间参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -153,7 +153,7 @@ func (d *WireSinkDriver) handleIdQuery(deviceName string) error {
 	}
 	//发送命令
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame("sink", eidStr, frame)
+	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("EID查询命令 已发送EID查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -186,7 +186,7 @@ func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
 	}
 	eidStr, _ := eidValue.(string)
 	//发送命令
-	relay.SendFrame("sink", eidStr, frame)
+	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("检测数据查询 已发送检测数据查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -220,7 +220,7 @@ func (d *WireSinkDriver) handleIdAlarmParaQuery(deviceName string) error {
 	}
 
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame("sink", eidStr, frame)
+	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("告警参数查询 已发送告警参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -254,7 +254,7 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 		return fmt.Errorf("拓扑查询 构造拓扑查询失败: %w", err)
 	}
 	eidStr, _ := eidValue.(string)
-	relay.SendFrame("sink", eidStr, frame)
+	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("已发送拓扑查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
@@ -281,7 +281,7 @@ var (
 )
 
 // TCP服务器是否启动
-func ensureUpgradeTCPServer(cfgPort uint32) (uint32, error) {
+func ensureUpgradeTCPServer(cfgPort uint32, deviceName string) (uint32, error) {
 	upgradeListenerMu.Lock()
 	defer upgradeListenerMu.Unlock()
 
@@ -337,7 +337,8 @@ func ensureUpgradeTCPServer(cfgPort uint32) (uint32, error) {
 				return
 			}
 
-			go handleUpgradeConn(conn) // 交给你的会话处理
+			// 把 deviceName 传给处理协程
+			go handleUpgradeConn(conn, deviceName)
 		}
 	}(upgradeListener)
 
@@ -427,7 +428,7 @@ func spliceOneFrame(acc []byte) (frame []byte, used int, needMore bool, err erro
 	return f, endIdx + 1, false, nil
 }
 
-func handleUpgradeConn(c net.Conn) {
+func handleUpgradeConn(c net.Conn, deviceName string) {
 	setUpgradeConn(c)
 	defer c.Close()
 
@@ -478,7 +479,6 @@ func handleUpgradeConn(c net.Conn) {
 				} else {
 					acc = acc[:0]
 				}
-				fmt.Printf("1111111111")
 				// ——到这里才交给解析器（你原来的 TryDecodeOne / ParseXxx）——
 				fr, perr := frameparser.ParseFrameBytes(frame)
 				if perr != nil {
@@ -490,17 +490,15 @@ func handleUpgradeConn(c net.Conn) {
 				if dev := strings.TrimRight(string(fr.CmdID[:]), "\x00"); dev != "" {
 					lastDeviceName = dev
 				}
+				lastDeviceName = deviceName
 				frameparser.PrintFrameBrief(fr)
 				// 分发
 				switch fr.PacketType {
 				case frameparser.PktUpgradeResp: // 0xB1
-					fmt.Printf("222222222222")
 					frameparser.HandleUpgradeResp(fr)
 				case frameparser.PktUpgradeState: // 0xD1
-					fmt.Printf("333333333333333")
 					frameparser.HandleUpgradeState(fr)
 				case frameparser.PktComplementReq: // 0xB4
-					fmt.Printf("44444444444444")
 					key := lastDeviceName
 					if key == "" {
 						key = "unknown"
@@ -552,7 +550,7 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 		d.report(deviceName, "start", nil)
 
 		// 确保TCP服务器已启动
-		actualPort, err := ensureUpgradeTCPServer(config.UpgradeTCPPort)
+		actualPort, err := ensureUpgradeTCPServer(config.UpgradeTCPPort, deviceName)
 		if err != nil {
 			d.report(deviceName, "failed", err)
 			d.lc.Errorf("start tcp server failed: %v", err)
@@ -735,7 +733,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	copy(sensorID[:], eidBytes)
 
 	// 固件读取
-	filePath := "./file/HJWG-20250731.hpk"
+	filePath := "./file/HY-BDWG-F470-V10-final-092901.hpk"
 	fw, err := readFirmwareBytes(filePath)
 	if err != nil {
 		return fmt.Errorf("读取固件失败: %w", err)
@@ -799,7 +797,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 
 		subNo := uint16(i + 1)
 		frameNo++
-		pktData, err := frameparser.BuildUpgradeDataPacket(config.EidStr, frameNo, subNo, chunk)
+		pktData, err := frameparser.BuildUpgradeDataPacket("HY_HJWG_202500002", frameNo, subNo, chunk)
 		if err != nil {
 			return fmt.Errorf("BuildUpgradeDataPacket sub=%d 失败: %w", subNo, err)
 		}
@@ -843,12 +841,12 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	fmt.Printf("发送完毕，进行结束补包阶段")
 
 	const (
-		compCollectWindow = 2 * time.Second
+		compCollectWindow = 5 * time.Second
 		maxCompRounds     = 10
 	)
 	for round := 1; round <= maxCompRounds; round++ {
-		// 发送结束报文
-		pktEnd, err := frameparser.CompReg.BuildUpgradeEndPacket(config.EidStr, fileName, frameNo)
+		// 1) 发送结束报文
+		pktEnd, err := frameparser.CompReg.BuildUpgradeEndPacket("HY_HJWG_202500002", fileName, frameNo)
 		if err != nil {
 			return fmt.Errorf("构建结束报文失败: %w", err)
 		}
@@ -856,14 +854,42 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			return fmt.Errorf("发送结束报文(TCP)失败: %w", err)
 		}
 
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(compCollectWindow):
+		// 2) 在 compCollectWindow 内轮询，直到收到 ACK（Snapshot 返回 ok）
+		deadline := time.Now().Add(compCollectWindow)
+		const pollInterval = 80 * time.Millisecond
+
+		var (
+			sum uint16
+			nos []uint16
+			ok  bool
+		)
+		for {
+			// 先看 ctx
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+
+			// Snapshot 只有在 Acked==true 时才 ok==true
+			sum, nos, ok = frameparser.CompReg.Snapshot(deviceName)
+			if ok {
+				break // 收到 ACK + 数据
+			}
+
+			if time.Now().After(deadline) {
+				d.lc.Infof("设备 %s 补包 ACK 等待超时(窗口=%s)，本轮结束（round=%d）", deviceName, compCollectWindow, round)
+				goto NEXT_ROUND
+			}
+
+			time.Sleep(pollInterval)
 		}
 
-		sum, nos, _ := frameparser.CompReg.Snapshot(deviceName)
-		if sum == 0 || len(nos) == 0 {
+		// ⬇️ 立刻清理该设备的记录（含 ACK 标记与号段）
+		frameparser.CompReg.Clear(deviceName)
+
+		// 3) 有补包请求则处理
+		if sum == 0 {
 			d.lc.Infof("设备 %s 无补包请求，本轮结束（round=%d）", deviceName, round)
 			break
 		}
@@ -883,7 +909,6 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 			if err != nil {
 				return fmt.Errorf("补包构造失败 sub=%d: %w", subNo, err)
 			}
-			// 直接TCP发送
 			if err := sendTCPFrame(ctx, pkt); err != nil {
 				return fmt.Errorf("补包发送失败(TCP) sub=%d: %w", subNo, err)
 			}
@@ -894,7 +919,12 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 				return err
 			}
 		}
+
+		// 处理完清理
 		frameparser.CompReg.Clear(deviceName)
+
+	NEXT_ROUND:
+		continue
 	}
 
 	d.lc.Infof("升级流程完成：设备=%s，文件=%s", deviceName, fileName)

@@ -69,7 +69,7 @@ func RestCommandBuildFrame(eidStr string, sensorID [6]byte, requestSetFlag byte,
 	binary.BigEndian.PutUint16(crcBytes, crc)
 	buf = append(buf, crcBytes...)
 	// 发送帧
-	relay.SendFrame("sink", eidStr, buf)
+	relay.SendFrame(eidStr, buf)
 
 	return nil
 }

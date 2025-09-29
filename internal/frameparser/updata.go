@@ -278,6 +278,25 @@ func writeU32LE(buf *bytes.Buffer, v uint32) {
 	buf.WriteByte(byte(v >> 24)) // b3
 }
 
+// UTF-8 按“字节数”安全截断（不截断半个中文/emoji）
+func truncateUTF8ByBytes(s string, maxBytes int) string {
+	if maxBytes <= 0 || len(s) == 0 {
+		return ""
+	}
+	var buf bytes.Buffer
+	for _, r := range s {
+		rl := utf8.RuneLen(r)
+		if rl < 0 {
+			rl = 1 // 不可识别 rune 按 1 字节写
+		}
+		if buf.Len()+rl > maxBytes {
+			break
+		}
+		buf.WriteRune(r)
+	}
+	return buf.String()
+}
+
 // 升级请求（所有 2B/4B 字段：低字节在前）
 func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 	if meta.EID == "" {
@@ -289,10 +308,16 @@ func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 	if meta.FileName == "" {
 		return nil, errors.New("FileName empty")
 	}
+
+	// 文件名：取基名，超长则 UTF-8 安全截断（按字节）
 	fileName := filepath.Base(meta.FileName)
-	if utf8.RuneCountInString(fileName) > fileNameSz-1 {
-		return nil, fmt.Errorf("FileName too long (> %d)", fileNameSz-1)
+	const reserveNUL = 1
+	maxNameBytes := fileNameSz - reserveNUL
+	if maxNameBytes < 0 {
+		maxNameBytes = 0
 	}
+	fileName = truncateUTF8ByBytes(fileName, maxNameBytes)
+
 	if meta.FrameLen == 0 {
 		return nil, fmt.Errorf("FrameLen invalid (%d)", meta.FrameLen)
 	}
@@ -321,7 +346,7 @@ func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 	buf.WriteByte(meta.FrameType)               // Frame_Type (1)
 	buf.WriteByte(meta.PacketType)              // Packet_Type (1)
 	buf.WriteByte(meta.FrameNo)                 // Frame_No (1)
-	writeFixedASCII(&buf, fileName, fileNameSz) // File_Name (32)
+	writeFixedASCII(&buf, fileName, fileNameSz) // File_Name (32)，不足补 0
 
 	// 4) 数值字段（全部小端）
 	buf.WriteByte(meta.FileType)                // File_Type (1)
@@ -372,8 +397,9 @@ func writeU32(buf *bytes.Buffer, bo binary.ByteOrder, v uint32) {
 }
 
 type ComplementInfo struct {
-	Sum uint16   // ComplementPack_Sum：未收到的总包数
-	Nos []uint16 // ComplementPack_No：补包号序列（2×N 字节 -> N 个 uint16）
+	Sum   uint16   // ComplementPack_Sum：未收到的总包数
+	Nos   []uint16 // ComplementPack_No：补包号序列（2×N 字节 -> N 个 uint16）
+	Acked bool     // 是否已收到 ACK（默认 false）
 }
 
 type ComplementRegistry struct {
@@ -385,14 +411,27 @@ func NewComplementRegistry() *ComplementRegistry {
 	return &ComplementRegistry{m: make(map[string]ComplementInfo)}
 }
 
-// 覆盖设置
-func (r *ComplementRegistry) Set(deviceName string, sum uint16, nos []uint16) {
+// 覆盖设置：同时更新 Sum / Nos / Acked
+func (r *ComplementRegistry) Set(deviceName string, sum uint16, nos []uint16, acked bool) {
 	r.mu.Lock()
-	r.m[deviceName] = ComplementInfo{
-		Sum: sum,
-		Nos: normalizeNos(nos),
+	defer r.mu.Unlock()
+
+	// 确保 map 已初始化
+	if r.m == nil {
+		r.m = make(map[string]ComplementInfo)
 	}
-	r.mu.Unlock()
+
+	n := normalizeNos(nos)
+
+	// 防止调用方后续修改 nos 影响内部
+	buf := make([]uint16, len(n))
+	copy(buf, n)
+
+	r.m[deviceName] = ComplementInfo{
+		Sum:   sum,
+		Nos:   buf,
+		Acked: acked,
+	}
 }
 
 // 追加合并（设备可能多次上报缺包号，把新缺包并进来，去重排序）
@@ -405,15 +444,19 @@ func (r *ComplementRegistry) Add(deviceName string, moreNos ...uint16) {
 	r.mu.Unlock()
 }
 
-// 读取补包快照
+// 读取补包快照：仅当已收到 ACK 时返回数据
 func (r *ComplementRegistry) Snapshot(deviceName string) (sum uint16, nos []uint16, ok bool) {
 	r.mu.RLock()
-	info, ok := r.m[deviceName]
+	info, exists := r.m[deviceName]
 	r.mu.RUnlock()
-	if !ok {
+
+	if !exists || !info.Acked {
 		return 0, nil, false
 	}
-	return info.Sum, append([]uint16(nil), info.Nos...), true
+
+	out := make([]uint16, len(info.Nos))
+	copy(out, info.Nos)
+	return info.Sum, out, true
 }
 
 // 清空指定设备的补包信息（补包完成后调用）
