@@ -8,10 +8,10 @@ import (
 )
 
 func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]interface{}) {
-	// d.lc.Infof("异步上传值为%#v", values)
+	d.lc.Infof("异步上传值为%#v", values)
 
 	if len(values) == 0 {
-		d.lc.Infof("异步上传没有要上报的值")
+		d.lc.Debugf("异步上传没有要上报的值")
 		return
 	}
 
@@ -41,7 +41,7 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 		}
 
 		if err != nil {
-			d.lc.Infof("异步上传 值类型(%s) 错误: %v", name, err)
+			d.lc.Errorf("异步上传 值类型(%s) 错误: %v", name, err)
 			continue
 		}
 		cv.Origin = origin
@@ -49,7 +49,7 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 	}
 
 	if len(cvs) == 0 {
-		d.lc.Infof("异步上传: 没有有效值，跳过上报")
+		d.lc.Warnf("异步上传: 没有有效值，跳过上报")
 		return
 	}
 

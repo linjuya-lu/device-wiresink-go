@@ -11,14 +11,11 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
 )
 
-// 主题
-const downTopic = "edgex/server/response/device_wiresink/down"
-
 func SendFrame(srcAddr string, payload []byte) {
 
 	hexStr1 := strings.ToUpper(hex.EncodeToString(payload))
 
-	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device_wiresink/down", srcAddr, hexStr1)
+	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device-wiresink/down", srcAddr, hexStr1)
 }
 
 type EdgexMessage struct {
@@ -36,10 +33,9 @@ type SinkPayload struct {
 	Eid       string `json:"Eid"`
 	Timestamp uint64 `json:"Timestamp"`
 	Datalen   int    `json:"Datalen"`
-	Data      string `json:"Data"` // 仍为 string，但装“十进制”
+	Data      string `json:"Data"`
 }
 
-// 仅发布十进制端口，不做任何十六进制编码
 func SendPortDecWithQoS(
 	client mqtt.Client,
 	topic, typ, eid string,
@@ -52,7 +48,7 @@ func SendPortDecWithQoS(
 		Eid:       eid,
 		Timestamp: uint64(time.Now().Unix()),
 		Datalen:   5,
-		Data:      fmt.Sprintf("%d", port), // ★ 十进制字符串
+		Data:      fmt.Sprintf("%d", port), //  十进制字符串
 	}
 
 	now := time.Now().UnixNano()

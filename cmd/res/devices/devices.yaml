@@ -1,19 +1,15 @@
 deviceList:
-  - name: "Edge-Node"
-    profileName: "Edge-Proxy-Profile"
-    description: "边缘接入节点"
-    labels:
-      - edge-node
+  - name: "SinkNode01"
+    profileName: "SinkNode"
+    description: "汇源汇聚节点01"
+    labels: ["汇聚网关01", "汇聚节点01"]
     protocols:
       custom:
-        location: /dev/ttyUSB0
-        baudRate: "115200"
-  - name: "Sink-Node"
-    profileName: "Sink-Node-Profile"
-    description: "汇源汇聚节点"
-    labels:
-      - sinke-node
+        type: "MQTT"
+  - name: "MicWeather01"
+    profileName: "MicWeather"
+    description: "微气象传感器"
+    labels: ["汇聚微气象01", "微气象传感器01"]
     protocols:
       custom:
-        location: /dev/ttyUSB0
-        baudRate: "115200"
+        type: "RS485"

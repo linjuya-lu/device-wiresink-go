@@ -8,9 +8,7 @@ import (
 // 资源映射
 var (
 	mu1                  sync.RWMutex
-	SensorIDToDeviceName = map[string]string{
-		"238A08262319": "Data-Demo",
-	}
+	SensorIDToDeviceName = map[string]string{}
 )
 
 // 添加一条映射

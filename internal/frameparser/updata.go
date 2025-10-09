@@ -34,7 +34,6 @@ func BuildUpgradeRequest(cmdID string, frameNo byte, filePath string) ([]byte, e
 	if totalPackets == 0 {
 		totalPackets = 1
 	}
-	//开始拼装
 	var buf bytes.Buffer
 	// Sync (2)
 	buf.WriteByte(byte(syncHi))
@@ -68,11 +67,8 @@ func BuildUpgradeRequest(cmdID string, frameNo byte, filePath string) ([]byte, e
 	buf.WriteByte(byte(endByte))
 	// 5) 回填 Packet_Length
 	pkt := buf.Bytes()
-	// 定义：从 CMD_ID 到 End 的总长度（不含前面 4 字节）
+	// 从 CMD_ID 到 End 的总长度（不含前面 4 字节）
 	packetLen := uint16(len(pkt) - 4)
-	// 如果你们要“全包长度”，用下面这行：
-	// packetLen := uint16(len(pkt))
-
 	pkt[plenPos] = byte(packetLen >> 8)
 	pkt[plenPos+1] = byte(packetLen)
 

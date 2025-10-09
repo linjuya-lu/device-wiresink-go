@@ -75,19 +75,12 @@ func (d *WireSinkDriver) Start() error {
 	}
 
 	// MQTT订阅
-	if err := mqttclient.SubscribeData(mqttclient.MqttClient, "edgex/service/request/device_wiresink/up", 0); err != nil {
+	if err := mqttclient.SubscribeData(mqttclient.MqttClient, "edgex/service/request/device-wiresink/up", 0); err != nil {
 		return err
 	}
 
 	// 业务数据解析协程
 	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting)
-
-	// 业务数据分片解析协程
-	// go func() {
-	// 	if err := frameparser.ShardingParser(frameparser.SDUCh); err != nil {
-	// 		d.lc.Errorf("Start 分片解析 异常退出: %v", err)
-	// 	}
-	// }()
 
 	// EID、设备名映射
 	config.UpdateSensorMapping()
@@ -110,7 +103,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
 		// 请求路由
-		if resName == "topologyDiagram" {
+		if resName == "topoList" {
 			topo := config.GetTopoList()
 			fmt.Printf("拓扑路由:%s", topo)
 			cv, cerr := dsModels.NewCommandValue(
@@ -143,45 +136,45 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 	d.locker.Lock()
 	defer d.locker.Unlock()
 
-	d.lc.Infof("获取命令: 设备=%s, 请求数=%d", deviceName, len(reqs))
+	d.lc.Debug("HandleWriteCommands: 设备=%s, 请求数=%d", deviceName, len(reqs))
 
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
 		cv := params[i]
 		v, _ := cv.Int8Value()
-		d.lc.Infof("常规命令 %d Resource=%s", i, resName)
+		d.lc.Debug("常规命令 %d Resource=%s", i, resName)
 		// 时间查询
-		if resName == "Time_Parameter_Query" && v == 1 {
+		if resName == "cmdTimeParamQry" && v == 1 {
 			if err := d.handleTimeParameterQuery(deviceName); err != nil {
 				return err
 			}
 		}
 		// 时间设置
-		if resName == "Time_Parameter_Set" && v == 1 {
+		if resName == "cmdTimeParamSet" && v == 1 {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {
 				return err
 			}
 		}
-		// 复位
-		if resName == "Reset_Set" && v == 1 {
+		// 复位设置
+		if resName == "cmdReSet" && v == 1 {
 			if err := d.handleResetCommand(deviceName); err != nil {
 				return err
 			}
 		}
-		// 检测参数查询
-		if resName == "Monitoring_Data_Query" && v == 1 {
+		// 工况查询
+		if resName == "cmdOperDataQ" && v == 1 {
 			if err := d.handleIdMoniDataQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 网络拓扑查询
-		if resName == "topologyDiagramQuery" && v == 1 {
+		// 拓扑查询
+		if resName == "cmdTopoDiagQry" && v == 1 {
 			if err := d.handleRouterParameterQuery(deviceName); err != nil {
 				return err
 			}
 		}
-		// 升级
-		if resName == "Upgrade" && v == 1 {
+		// 升级命令
+		if resName == "cmdUpgrade" && v == 1 {
 			_ = d.startUpgradeAsync(deviceName)
 		}
 	}
@@ -216,7 +209,7 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
 			return fmt.Errorf("AddDevice 初始化设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
-		d.lc.Infof("AddDevice 已将设备 %s 的资源 %s 初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		d.lc.Debugf("AddDevice 已将设备 %s 的资源 %s 初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
 	}
 	return nil
 }
@@ -240,7 +233,7 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
 			return fmt.Errorf("UpdateDevice 更新设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
-		d.lc.Infof("UpdateDevice 已将设备 %s 的资源 %s 重新初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		d.lc.Debugf("UpdateDevice 已将设备 %s 的资源 %s 重新初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
 	}
 
 	d.lc.Infof("UpdateDevice 已刷新设备 %s 的资源值为最新默认配置", deviceName)

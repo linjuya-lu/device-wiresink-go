@@ -13,33 +13,25 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
 )
 
-// deviceName: 设备名称
-// sourceName: 上报的源名称
-// resourceNames: 已解析的资源名列表
+// deviceName: 设备名
+// sourceName: 资源名
+// resourceNames: 数据值列表
 type CallbackFunc func(deviceName, sourceName string, values map[string]interface{})
 
-// 依照《Q/GDW 12184—2021》附录 D 业务报文格式，实现以下功能：
-// 1. 提取 SensorID、报文类型（仅处理业务数据：监测和告警）  控制报文与控制报文响应单独函数处理
-// 2. 根据 DataLen（4bit）、FragInd（1bit）、PacketType（3bit）判断是否处理
-// 3. 分片帧（FragInd=1）开协程处理
-// 4. 按照参量个数逐个解析 ParamType(14bit)+LengthFlag(2bit) + 可选长度字段 + 数据
-// 5. 将数值按表转换为 float32/float64/int8等基本类型
-// 6. 针对 SensorID，调用 config.SetDeviceValue 存储解析结果
+// LORA协议解析函数入口
 func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
-	// fmt.Printf("[StartParser] cb=%p\n", cb)
-
 	go func() {
 		for frame := range frameCh {
 			fmt.Printf("Received frame (%d bytes): % X\n", len(frame), frame)
-			// 最小长度校验：6字节ID +1字节头 +2字节CRC
+			// 长度校验
 			if len(frame) < 9 {
 				log.Println("帧长度不足，跳过解析")
 				continue
 			}
-			// CRC 校验：最后 2 字节为 CRC-16
+			// CRC 校验
 			payload := frame[:len(frame)-2]
 			recvCRC := binary.BigEndian.Uint16(frame[len(frame)-2:])
-			// 读取6字节SensorID，使用Hex字符串表示
+			// 解析EID
 			sidBytes := frame[0:6]
 			sensorID := strings.ToUpper(hex.EncodeToString(sidBytes))
 			deviceName, hasDevice := config.LookupDeviceName(sensorID)
@@ -53,7 +45,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			}
 			//更新维护时间
 			onDataReceived(deviceName)
-			// 头部：4bit DataLen、1bit FragInd、3bit PacketType
+			// 头部
 			head := frame[6]
 			dataCount := int(head >> 4)  // 参量个数
 			fragInd := (head >> 3) & 0x1 // 分片指示
@@ -102,7 +94,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 					}
 					continue
 				default:
-					// 其他不处理
+					// 不处理
 					continue
 				}
 			} else {
@@ -122,7 +114,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				idx += 2
 				paramType := head16 >> 2       // 14bit类型码
 				lenFlag := uint8(head16 & 0x3) // 2bit长度指示
-				// 计算真实数据长度
+				// 计算数据长度
 				var dataLen uint32
 				switch lenFlag {
 				case 0:
@@ -146,7 +138,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				if info, ok := config.LookupParamInfo(paramType); ok {
 					val, err := info.Parse(valBytes)
 					if err != nil {
-						log.Printf("❌ 参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
+						log.Printf("参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
 					} else {
 						// 写入运行时值表
 						if val != nil {
@@ -178,17 +170,9 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 }
 
 // 构造并发送“监测数据响应”报文
-// 协议格式: [SensorID(6)][Header(1)][Data_Status(1)][CRC16(2)]
-//   - SensorID: 字符串
-//   - Header:
-//     高4位：DataLen (参数个数)
-//     第3位：FragInd (0=未分片)
-//     低3位：PacketType (0b001=监测数据响应)
-//   - Data_Status: 上传状态 0xFF 成功，0x00 失败
-//   - CRC16: 对整帧前 8 字节 CRC16 校验，高低字节附加
 func SendDataStatus(sensorKey string, packetType byte, dataStatus byte, dataLen byte) error {
 	var eidStr = "238A0841D828"
-	// 解码 EID
+	// EID
 	keyBytes, err := hex.DecodeString(eidStr)
 	if err != nil {
 		return errors.New("invalid sensorKey hex: " + err.Error())
@@ -196,15 +180,15 @@ func SendDataStatus(sensorKey string, packetType byte, dataStatus byte, dataLen 
 	if len(keyBytes) != 6 {
 		return errors.New("sensorKey hex must decode to 6 bytes")
 	}
-	// 构造 Header
+	//Header
 	const fragInd = 0 // 未分片
 	header := (dataLen<<4)&0xF0 | (fragInd<<3)&0x08 | (packetType & 0x07)
-	// 拼接帧：SensorID + Header + Data_Status
+	//拼接
 	packet := make([]byte, 0, len(keyBytes)+1+1+2)
 	packet = append(packet, keyBytes...)
 	packet = append(packet, header)
 	packet = append(packet, dataStatus)
-	//计算 CRC16
+	//CRC16
 	crc := CRC16(packet)
 	packet = append(packet, byte(crc>>8), byte(crc&0xFF))
 	//发送
@@ -212,8 +196,8 @@ func SendDataStatus(sensorKey string, packetType byte, dataStatus byte, dataLen 
 	return nil
 }
 
+// 写入时间戳（纳秒）
 func onDataReceived(deviceName string) {
-	// 写入时间戳（纳秒）
 	ts := time.Now().UnixNano()
-	config.SetDeviceValue(deviceName, "lastDataTimestamp", ts)
+	config.SetDeviceValue(deviceName, "LastDataTs", ts)
 }

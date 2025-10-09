@@ -8,8 +8,8 @@ import (
 )
 
 type ParamKey struct {
-	FeatureBits byte   // 高3位（参量特征）
-	CodeBits    uint16 // 低11位（类型编码）
+	FeatureBits byte   // 参量特征
+	CodeBits    uint16 // 类型编码
 }
 
 type ParamInfo struct {
@@ -26,16 +26,16 @@ var paramMap = map[ParamKey]ParamInfo{
 	{0b000, 0b00000000001}: {"Length", "m", 4, "float32", parseFloat32},
 	{0b000, 0b00000000010}: {"Mass", "kg", 4, "float32", parseFloat32},
 	{0b000, 0b00000000011}: {"Time", "s", 4, "uint32", parseUint32},
-	{0b000, 0b00000000100}: {"ElectricCurrent", "A", 4, "float32", parseFloat32},
-	{0b000, 0b00000000101}: {"Temperature", "℃", 4, "float32", parseFloat32},
+	{0b000, 0b00000000100}: {"ElecCurr", "A", 4, "float32", parseFloat32},
+	{0b000, 0b00000000101}: {"Temp", "℃", 4, "float32", parseFloat32},
 	{0b000, 0b00000000110}: {"AmountOfSubstance", "mol", 4, "float32", parseFloat32},
 	{0b000, 0b00000000111}: {"LuminousIntensity", "cd", 4, "float32", parseFloat32},
 	//拓扑解析
-	{0b000, 0b00000001000}: {"topologyDiagram", "", -1, "", parseTopo},
+	{0b000, 0b00000001000}: {"topoList", "", -1, "", parseTopo},
 	// 状态量 & 扩展
 	{0b000, 0b00000011100}: {"HeartbeatStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000011101}: {"BatteryRemaining", "%", 2, "uint16", parseUint16},
-	{0b000, 0b00000011110}: {"BatteryVoltage", "V", 4, "float32", parseFloat32},
+	{0b000, 0b00000011110}: {"BatVolt", "V", 4, "float32", parseFloat32},
 	{0b000, 0b00000011111}: {"SensorSelfTestStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000100000}: {"NetworkConnectionStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000100001}: {"PowerStatus", "", 1, "uint8", parseUint8},
@@ -74,17 +74,17 @@ var paramMap = map[ParamKey]ParamInfo{
 	{0b000, 0b00001100110}: {"VibrationSpectrum", "m/s²", -1, "float32[]", parsefloat32Array},
 	{0b000, 0b00001100111}: {"Force", "N", 4, "float32", parseFloat32},
 	//-------------------------------------------------------D.2输电业务状态参量类型表----------------------------------------------------
-	{0b001, 0b00000000001}: {"10minAvgWindSpeed", "m/s", 4, "float32", parseFloat32},
-	{0b001, 0b00000000010}: {"10minAvgWindDirection", "°", 2, "int16", parseInt16},
-	{0b001, 0b00000000011}: {"MaxWindSpeed", "m/s", 4, "float32", parseFloat32},
+	{0b001, 0b00000000001}: {"WindSpd10mAvg", "m/s", 4, "float32", parseFloat32},
+	{0b001, 0b00000000010}: {"WindDir10mAvg", "°", 2, "int16", parseInt16},
+	{0b001, 0b00000000011}: {"WindSpdMax", "m/s", 4, "float32", parseFloat32},
 	{0b001, 0b00000100100}: {"ExtremeWindSpeed", "m/s", 4, "float32", parseFloat32},
 	{0b001, 0b0000010101}:  {"StandardWindSpeed", "m/s", 4, "float32", parseFloat32},
-	{0b001, 0b00000110}:    {"Temperature1", "°C", 4, "float32", parseFloat32},
-	{0b001, 0b00000111}:    {"Humidity1", "%RH", 2, "uint16", parseUint16},
+	{0b001, 0b00000110}:    {"TempAmbient", "°C", 4, "float32", parseFloat32},
+	{0b001, 0b00000111}:    {"HumiAmbient", "%RH", 2, "uint16", parseUint16},
 	{0b001, 0b00001000}:    {"Pressure", "hPa", 4, "float32", parseFloat32},
-	{0b001, 0b00001001}:    {"Rainfall10min", "mm", 4, "float32", parseFloat32},
+	{0b001, 0b00001001}:    {"Rain10m", "mm", 4, "float32", parseFloat32},
 	{0b001, 0b00001010}:    {"RainIntensity", "mm/min", 4, "float32", parseFloat32},
-	{0b001, 0b00001011}:    {"SolarRadiation", "W/m2", 2, "uint16", parseUint16},
+	{0b001, 0b00001011}:    {"SolarRad", "W/m2", 2, "uint16", parseUint16},
 	{0b001, 0b00001100}:    {"InstantWindSpeed", "m/s", 4, "float32", parseFloat32},
 	{0b001, 0b00001101}:    {"InstantWindDirection", "°", 2, "int16", parseInt16},
 	{0b001, 0b00001110}:    {"WindDirectionDeviation", "°", 2, "int16", parseInt16},
@@ -400,7 +400,7 @@ func parseTopo(data []byte) (any, error) {
 		i++
 	}
 	if i >= n {
-		return nil, fmt.Errorf("parseTopo 未找到节点起点，数据不符合约定")
+		return nil, fmt.Errorf("拓扑解析 未找到节点起点，数据不符合约定")
 	}
 
 	var topoList []NodeTopology

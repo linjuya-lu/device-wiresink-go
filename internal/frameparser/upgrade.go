@@ -12,32 +12,21 @@ import (
 
 // ===== 协议常量 =====
 const (
-	syncHi byte = 0x5A
-	syncLo byte = 0xA5
-	endTag byte = 0x96
+	syncHi               byte = 0x5A
+	syncLo               byte = 0xA5
+	endTag               byte = 0x96
+	PktUpgradeResp       byte = 0xB1 // 表2：网关响应边代升级请求
+	PktUpgradeState      byte = 0xD1 // 表7：主动上传当前升级状态
+	PktComplementReq     byte = 0xB4 // 表5：后台升级补包请求（从机发送）
+	DevStateIdle              = 1
+	DevStateUpgrading         = 2
+	DevStateDone              = 3
+	DevStateFailed            = 4
+	CommandStatusSuccess      = 0xFF
+	CommandStatusFailed       = 0x00
 )
 
-const (
-	PktUpgradeResp   byte = 0xB1 // 表2：网关响应边代升级请求
-	PktUpgradeState  byte = 0xD1 // 表7：主动上传当前升级状态
-	PktComplementReq byte = 0xB4 // 表5：后台升级补包请求（从机发送）
-)
-
-// Device_State（表7）
-const (
-	DevStateIdle      = 1
-	DevStateUpgrading = 2
-	DevStateDone      = 3
-	DevStateFailed    = 4
-)
-
-// Command_Status（表2）
-const (
-	CommandStatusSuccess = 0xFF
-	CommandStatusFailed  = 0x00
-)
-
-// ===== 你的全局标志（示例）=====
+// ===== 全局标志=====
 var (
 	MuReady   sync.RWMutex
 	ReadyFlag uint8 // 0 未就绪；1 已就绪；2 失败（可选）
@@ -49,15 +38,12 @@ func setReady(ok bool) {
 	if ok {
 		ReadyFlag = 1
 	} else {
-		ReadyFlag = 0 // 也可置 2 表示失败
+		ReadyFlag = 0
 	}
 	MuReady.Unlock()
 }
 
-// 你已有的 ACK 标志接口
-// func SetAck(received bool) { ... }
-
-// 统一的帧对象（按字段位序）
+// 帧对象
 type frame struct {
 	SyncHi, SyncLo byte     // 0..1
 	PacketLen      uint16   // 2..3  总长度（含头尾）
@@ -87,7 +73,7 @@ func ParseFrameBytes(b []byte) (*frame, error) {
 		return nil, fmt.Errorf("bad sync: %02X %02X", b[0], b[1])
 	}
 
-	// 协议中的 Packet_Length（=载荷长度，从 CMD_ID 起算）
+	// 协议中的 Packet_Length（载荷长度，从 CMD_ID 起算）
 	var plen uint16
 	if be {
 		plen = binary.BigEndian.Uint16(b[2:4])
@@ -95,7 +81,7 @@ func ParseFrameBytes(b []byte) (*frame, error) {
 		plen = binary.LittleEndian.Uint16(b[2:4])
 	}
 
-	// 计算期望总长 & 实际载荷长度
+	// 期望总长 & 实际载荷长度
 	totalExpected := int(2 + 2 + plen + 2 + 1) // 4 + plen + 3
 	if len(b) < totalExpected {
 		return nil, fmt.Errorf("incomplete frame: have=%d expect=%d (plen=%d)", len(b), totalExpected, plen)

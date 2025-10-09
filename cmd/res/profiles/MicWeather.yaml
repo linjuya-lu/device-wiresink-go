@@ -1,0 +1,145 @@
+name: "MicWeather"
+manufacturer: "四川汇源"
+model: "MicWea-20250731"
+labels: ["汇聚微气象", "微气象传感器"]
+description: "微气象传感器"
+
+deviceResources:  
+  - name: "WindSpd10mAvg"                
+    isHidden: true                   
+    description: "平均风速"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "WindDir10mAvg"                
+    isHidden: true                   
+    description: "平均风向"
+    properties:
+      valueType: "Int16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "WindSpdMax"                
+    isHidden: true                   
+    description: "最大风速"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "TempAmbient"                
+    isHidden: true                   
+    description: "环境温度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "HumiAmbient"                
+    isHidden: true                   
+    description: "环境湿度"
+    properties:
+      valueType: "Uint16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Pressure"                
+    isHidden: true                  
+    description: "大气气压"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Rain10m"                
+    isHidden: true                   
+    description: "雨量"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "SolarRad"                
+    isHidden: true                   
+    description: "光照强度"
+    properties:
+      valueType: "Uint16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "LastDataTs"                       # 最新时间戳(Unix 纳秒）
+    isHidden: true
+    description: "最新时间戳"
+    properties:
+      valueType: "Int64"                            # 64 位整数，纳秒级
+      readWrite: "R"                                
+      units: "ns"
+      defaultValue: "0"
+  - name: "state"
+    isHidden: true
+    description: "传感器运行状态(0=正常,1=故障)"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "period"
+    isHidden: true
+    description: "上报周期（秒）"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "60"
+  - name: "AsyncReporting"
+    isHidden: false
+    description: "资源上传"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "0"
+  - name: "reset_ctl"               
+    isHidden: true                   
+    description: "复位设置响应"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "" 
+  - name: "timestamp"               
+    isHidden: true                   
+    description: "时间查询响应"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "" 
+  - name: "AsyncReport"
+    isHidden: true
+    description: "异步上传通道名"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "0"
+deviceCommands:
+  -
+    name: "ResMicWeather"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "WindSpd10mAvg", defaultValue: "0" }
+      - { deviceResource: "WindDir10mAvg", defaultValue: "0" }
+      - { deviceResource: "WindSpdMax", defaultValue: "0" }
+      - { deviceResource: "TempAmbient", defaultValue: "0" }
+      - { deviceResource: "HumiAmbient", defaultValue: "0" }
+      - { deviceResource: "Pressure", defaultValue: "0" }
+      - { deviceResource: "Rain10m", defaultValue: "0" }
+      - { deviceResource: "SolarRad", defaultValue: "0" }
+      - { deviceResource: "LastDataTs", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
+
+

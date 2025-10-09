@@ -24,7 +24,7 @@ func startHealthCheckLoop() {
 
 			// 检查每台设备
 			for _, dev := range deviceNames {
-				rawTs, okTs := config.GetDeviceValue(dev, "lastDataTimestamp")
+				rawTs, okTs := config.GetDeviceValue(dev, "LastDataTs")
 				rawPr, okPr := config.GetDeviceValue(dev, "period")
 				if !okTs || !okPr {
 					continue

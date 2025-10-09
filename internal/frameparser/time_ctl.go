@@ -10,18 +10,14 @@ import (
 const packetTypeControl = 0x04
 const ctrlTypeTimeParam = 0x04
 
-// 封装 7.5 节 传感器时间参数查询/设置报文
+// 时间参数查询/设置原始报文
 //
-//	sensorID        EID
-//	requestSetFlag  — 0=查询，1=设置
-//	timestamp       uint32 — 世纪秒（设置时有效；查询时请传 0）
-//
-// 返回：完整的二进制帧（已附加 CRC16），或错误。
+//	requestSetFlag  0=查询，1=设置
+//	timestamp       世纪秒
 func BuildTimeParamFrame(sensorID [6]byte, requestSetFlag byte, timestamp uint32) ([]byte, error) {
 	if requestSetFlag != 0 && requestSetFlag != 1 {
-		return nil, fmt.Errorf("invalid requestSetFlag %d, must be 0 or 1", requestSetFlag)
+		return nil, fmt.Errorf("无效参数 %d", requestSetFlag)
 	}
-	// 分配：6B SensorID + 1B head + 1B ctrl + 4B ts + 2B CRC
 	buf := make([]byte, 0, 6+1+1+4+2)
 	// SensorID
 	buf = append(buf, sensorID[:]...)

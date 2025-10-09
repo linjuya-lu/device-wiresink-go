@@ -1,6 +1,5 @@
 package frameparser
 
-// 实现第8章和附录H分片解析、确认及重传机制
 import (
 	"encoding/binary"
 	"fmt"

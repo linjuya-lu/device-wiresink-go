@@ -1,0 +1,148 @@
+name: "SinkNode"
+manufacturer: "四川汇源"
+model: "HJWG-20250731"
+labels: ["汇聚网关", "汇聚节点"]
+description: "汇聚节点"
+
+deviceResources: 
+  - name: "eid"               
+    isHidden: true                   
+    description: "设备标识"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A08411011"    
+  - name: "BatVolt"                
+    isHidden: true                   
+    description: "工作电压"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"    
+  - name: "ElecCurr"                
+    isHidden: true                   
+    description: "工作电流"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"    
+  - name: "Temp"                
+    isHidden: true                   
+    description: "工作温度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "LastDataTs"                       # 上次收到数据的时间戳
+    isHidden: true
+    description: "最新时间戳"
+    properties:
+      valueType: "Int64"                     
+      readWrite: "R"                                
+      units: "ns"
+      defaultValue: "0"
+  - name: "state"                               
+    isHidden: true
+    description: "传感器运行状态"              # 0=正常,1=故障
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "period"
+    isHidden: true
+    description: "上报周期"               
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "60"
+  - name: "AsyncReporting"
+    isHidden: true
+    description: "资源上传通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
+  - name: "timestamp"               
+    isHidden: true                   
+    description: "时间查询响应"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "" 
+  - name: "cmdTimeParamQry"  
+    isHidden: true
+    description: "时间查询"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"  
+  - name: "cmdTimeParamSet"  
+    isHidden: true
+    description: "时间设置"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"      
+  - name: "cmdReSet"  
+    isHidden: true
+    description: "复位设置"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"   
+  - name: "cmdOperDataQ"  
+    isHidden: true
+    description: "工况查询"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"   
+  - name: "cmdUpgrade"  
+    isHidden: true
+    description: "升级命令"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"       
+      units: ""
+      defaultValue: "0"  
+  - name: "cmdTopoDiagQry"   
+    isHidden: true
+    description: "拓扑查询"
+    properties:
+      valueType: "Int8"    
+      readWrite: "W"        
+      units: ""            
+      defaultValue: "0"     
+  - name: "topoList"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
+    isHidden: false
+    description: "路由信息"
+    properties:
+      valueType: "Object"    
+      readWrite: "R"        
+      units: ""            
+      defaultValue: "{}"     
+deviceCommands:
+  -
+    name: "ResSinkNode"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "BatVolt", defaultValue: "0" }
+      - { deviceResource: "ElecCurr", defaultValue: "0" }
+      - { deviceResource: "Temp", defaultValue: "0" }
+      - { deviceResource: "LastDataTs", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
+
+

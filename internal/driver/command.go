@@ -31,7 +31,7 @@ type UpgradeProgress struct {
 }
 
 func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
-	d.lc.Infof("时间设置: %s", deviceName)
+	d.lc.Debug("时间设置: %s", deviceName)
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("时间设置 设备 %s 的 EID 未初始化", deviceName)
@@ -65,7 +65,7 @@ func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 }
 
 func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
-	d.lc.Infof("复位命令: %s", deviceName)
+	d.lc.Debug("复位命令: %s", deviceName)
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("复位命令 设备 %s 的 EID 未初始化", deviceName)
@@ -88,14 +88,13 @@ func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 	copy(sensorID[:], eidBytes)
 	reqFrame, _ := frameparser.BuildResetRequest(sensorID)
 	eidStr, _ := eidValue.(string)
-	fmt.Printf("44444444444444")
 	relay.SendFrame(eidStr, reqFrame)
 	d.lc.Infof("复位命令 已发送复位命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
 func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
-	d.lc.Infof("时间参数查询: %s", deviceName)
+	d.lc.Debug("时间参数查询: %s", deviceName)
 
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
@@ -124,42 +123,8 @@ func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
 	return nil
 }
 
-func (d *WireSinkDriver) handleIdQuery(deviceName string) error {
-	d.lc.Infof("EID查询命令: %s", deviceName)
-
-	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
-	if !ok {
-		err := fmt.Errorf("EID查询命令 设备 %s 的 EID 未初始化", deviceName)
-		d.lc.Error(err.Error())
-		return err
-	}
-
-	eidBytes, err := hex.DecodeString(config.EidStr)
-	if err != nil {
-		err = fmt.Errorf("EID查询命令 EID[%s] 转十六进制失败: %w", config.EidStr, err)
-		d.lc.Error(err.Error())
-		return err
-	}
-	if len(eidBytes) != 6 {
-		err = fmt.Errorf("EID查询命令 EID 长度不对，期望 6 字节，实际 %d 字节", len(eidBytes))
-		d.lc.Error(err.Error())
-		return err
-	}
-	var sensorID [6]byte
-	copy(sensorID[:], eidBytes)
-	frame, err := frameparser.BuildSensorIDFrame(sensorID, 0, [6]byte{})
-	if err != nil {
-		return fmt.Errorf("EID查询命令 构造传感器ID查询帧失败: %w", err)
-	}
-	//发送命令
-	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("EID查询命令 已发送EID查询命令到设备 %s (EID: %s)", deviceName, eidStr)
-	return nil
-}
-
 func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
-	d.lc.Infof("检测数据查询: %s", deviceName)
+	d.lc.Debug("检测数据查询: %s", deviceName)
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
 		err := fmt.Errorf("检测数据查询 设备 %s 的 EID 未初始化", deviceName)
@@ -185,48 +150,13 @@ func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
 		return fmt.Errorf("检测数据查询 构造全部通用参数查询失败: %w", err)
 	}
 	eidStr, _ := eidValue.(string)
-	//发送命令
 	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("检测数据查询 已发送检测数据查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
 }
 
-func (d *WireSinkDriver) handleIdAlarmParaQuery(deviceName string) error {
-	d.lc.Infof("告警参数查询: %s", deviceName)
-	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
-	if !ok {
-		err := fmt.Errorf("告警参数查询 设备 %s 的 EID 未初始化", deviceName)
-		d.lc.Error(err.Error())
-		return err
-	}
-
-	eidBytes, err := hex.DecodeString(config.EidStr)
-	if err != nil {
-		err = fmt.Errorf("告警参数查询 EID[%s] 转十六进制失败: %w", config.EidStr, err)
-		d.lc.Error(err.Error())
-		return err
-	}
-	if len(eidBytes) != 6 {
-		err = fmt.Errorf("告警参数查询 EID 长度不对，期望 6 字节，实际 %d 字节", len(eidBytes))
-		d.lc.Error(err.Error())
-		return err
-	}
-	var sensorID [6]byte
-	copy(sensorID[:], eidBytes)
-
-	frame, err := frameparser.BuildAlarmParameterQueryFrame(sensorID)
-	if err != nil {
-		return fmt.Errorf("告警参数查询 构造q全部通用参数查询失败: %w", err)
-	}
-
-	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("告警参数查询 已发送告警参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
-	return nil
-}
-
 func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
-	d.lc.Infof("拓扑查询: %s", deviceName)
+	d.lc.Debugf("拓扑查询: %s", deviceName)
 
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
 	if !ok {
@@ -560,7 +490,7 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 
 		if err := relay.SendPortDecWithQoS(
 			mqttclient.MqttClient,
-			"edgex/server/response/device_wiresink/down",
+			"edgex/server/response/device-wiresink/down",
 			"update",
 			config.EidStr,
 			uint32(actualPort),
@@ -733,7 +663,7 @@ func (d *WireSinkDriver) handleUpgradeQuery(ctx context.Context, deviceName stri
 	copy(sensorID[:], eidBytes)
 
 	// 固件读取
-	filePath := "./file/HY-BDWG-F470-V10-final-092901.hpk"
+	filePath := "./res/updata/HY-BDWG-F470-V10-final-092901.hpk"
 	fw, err := readFirmwareBytes(filePath)
 	if err != nil {
 		return fmt.Errorf("读取固件失败: %w", err)

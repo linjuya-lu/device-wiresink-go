@@ -186,7 +186,6 @@ func normalizeHex(s string) (string, []byte, error) {
 	return s, b, err
 }
 
-// 默认 QoS=1，超时 10s
 func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
 	//预处理
 	normHex, raw, err := normalizeHex(data)
