@@ -13,8 +13,10 @@ import (
 	"unicode/utf8"
 )
 
-var endByte = 0x96
-var CompReg = NewComplementRegistry()
+var (
+	endByte = 0x96
+	CompReg = NewComplementRegistry()
+)
 
 // 升级请求报文；
 func BuildUpgradeRequest(cmdID string, frameNo byte, filePath string) ([]byte, error) {
@@ -380,16 +382,6 @@ func writeFixedASCII(buf *bytes.Buffer, s string, n int) {
 	if pad := n - len(b); pad > 0 {
 		buf.Write(make([]byte, pad)) // 0 填充
 	}
-}
-func writeU16(buf *bytes.Buffer, bo binary.ByteOrder, v uint16) {
-	var t [2]byte
-	bo.PutUint16(t[:], v)
-	buf.Write(t[:])
-}
-func writeU32(buf *bytes.Buffer, bo binary.ByteOrder, v uint32) {
-	var t [4]byte
-	bo.PutUint32(t[:], v)
-	buf.Write(t[:])
 }
 
 type ComplementInfo struct {

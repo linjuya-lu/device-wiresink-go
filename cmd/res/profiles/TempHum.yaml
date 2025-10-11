@@ -1,0 +1,67 @@
+name: "TempHum"
+manufacturer: "友讯达"
+model: "温湿度传感器-20250731"
+labels: ["温湿度传感器", "友讯达温湿度传感器"]
+description: "温湿度传感器"
+
+deviceResources:
+  - name: "temperature"
+    isHidden: false
+    description: "温度值"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "℃"
+      defaultValue: "0"
+  - name: "humidity"
+    isHidden: false
+    description: "湿度值"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "%RH"
+      defaultValue: "0"
+  - name: "voltage"
+    isHidden: false
+    description: "供电电压"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "V"
+      defaultValue: "0"
+  - name: "battery-level"
+    isHidden: false
+    description: "电池电量"
+    properties:
+      valueType: "Uint16"
+      readWrite: "R"
+      units: "%"
+      defaultValue: "0"
+  - name: "state"
+    isHidden: true
+    description: "传感器运行状态"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "eid"
+    isHidden: true                    
+    description: "设备标识"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A0821BF34"               
+  - name: "AsyncReporting"
+    isHidden: true
+    description: "资源上传通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
+
+
+
+      

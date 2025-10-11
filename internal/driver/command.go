@@ -416,10 +416,6 @@ func handleUpgradeConn(c net.Conn, deviceName string) {
 					continue
 				}
 
-				// 记录设备名
-				if dev := strings.TrimRight(string(fr.CmdID[:]), "\x00"); dev != "" {
-					lastDeviceName = dev
-				}
 				lastDeviceName = deviceName
 				frameparser.PrintFrameBrief(fr)
 				// 分发
@@ -528,7 +524,7 @@ func (d *WireSinkDriver) report(dev, stage string, err error) {
 	select {
 	case d.progCh <- UpgradeProgress{Device: dev, Stage: stage, Err: err}:
 	default:
-		// 丢弃或扩容通道
+		// 丢弃
 	}
 }
 

@@ -47,9 +47,9 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			onDataReceived(deviceName)
 			// 头部
 			head := frame[6]
-			dataCount := int(head >> 4)  // 参量个数
-			fragInd := (head >> 3) & 0x1 // 分片指示
-			packetType := head & 0x07    // 报文类型
+			dataCount := int(head >> 4)
+			fragInd := (head >> 3) & 0x1
+			packetType := head & 0x07
 			body := make([]byte, len(frame)-2-7)
 			copy(body, frame[7:len(frame)-2])
 			if CRC16(payload) != recvCRC {
@@ -98,8 +98,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 					continue
 				}
 			} else {
-				// 分片帧
-				ProcessFrame(frame_ctl)
+				// 不处理
 			}
 			idx := 7
 			parsed := 0

@@ -28,7 +28,7 @@ type WireSinkDriver struct {
 
 	upgMu     sync.Mutex //异步升级锁
 	upgrading map[string]context.CancelFunc
-	progCh    chan UpgradeProgress // 未实现：进度/结果上报
+	progCh    chan UpgradeProgress // 进度/结果上报通道
 
 }
 
@@ -87,7 +87,7 @@ func (d *WireSinkDriver) Start() error {
 
 	startHealthCheckLoop() // 健康检查
 
-	d.lc.Infof("有线汇聚服务已启动......")
+	d.lc.Infof("有线汇聚已启动......")
 	return nil
 }
 
@@ -491,20 +491,4 @@ func makeCV(name string, valueType string, val any) (*dsModels.CommandValue, err
 	}
 	cv.Origin = time.Now().UnixNano()
 	return cv, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// ASCII码去尾部0
-func asciiTrim(b []byte) string {
-	n := len(b)
-	for n > 0 && b[n-1] == 0 {
-		n--
-	}
-	return string(b[:n])
 }

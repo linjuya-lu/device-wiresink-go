@@ -1,0 +1,57 @@
+name: "WaterLvl"
+manufacturer: "友讯达"
+model: "水位传感器-20250731"
+labels: ["水位传感器", "友讯达水位传感器"]
+description: "水位传感器"
+
+deviceResources:
+  - name: "water-level"
+    isHidden: false
+    description: "当前水位"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "cm"
+      defaultValue: "0"
+  - name: "voltage"
+    isHidden: false
+    description: "设备电压"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "V"
+      defaultValue: "0"
+  - name: "battery-level"
+    isHidden: false
+    description: "电池电量"
+    properties:
+      valueType: "Uint16"
+      readWrite: "R"
+      units: "%"
+      defaultValue: "0"
+  - name: "state"
+    isHidden: true
+    description: "传感器运行状态"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "eid"
+    isHidden: false                    
+    description: "设备标识"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A0821BEF2"               
+  - name: "AsyncReporting"
+    isHidden: true
+    description: "资源上传通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
+
+      

@@ -73,7 +73,7 @@ deviceResources:
     isHidden: true
     description: "最新时间戳"
     properties:
-      valueType: "Int64"                            # 64 位整数，纳秒级
+      valueType: "Int64"                     # 64 位整数，纳秒级
       readWrite: "R"                                
       units: "ns"
       defaultValue: "0"
