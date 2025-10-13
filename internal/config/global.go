@@ -2,14 +2,19 @@ package config
 
 import "sync"
 
-// TCP端口
-var UpgradeTCPPort uint32 = 12345
+var (
+	UpgradeTCPPort uint32 = 12345 // TCP端口
 
-// 写通道
-var WriteChan = make(chan []byte, 100)
+	WriteChan = make(chan []byte, 100) // 写通道
 
-// 模块EID
-var EidStr = "238A0841D828"
+	EidStr = "238A0841D828" // 模块EID
+
+	BrokerURL = "tcp://192.168.75.137:1883" //MQTT代理
+
+	//配置文件目录
+	DevicesYAML = "../cmd/res/devices/devices.yaml"
+	ProfilesDir = "../cmd/res/profiles"
+)
 
 // 路由表
 var (
@@ -26,17 +31,19 @@ func GetTopoList() []NodeTopology {
 	return cloned
 }
 
-// -----------------------------------------------升级变量-------------------------------------------------------------------
+// -----------------------------------------------升级处理-------------------------------------------------------------------
 type FrameFlags struct {
 	Acked          bool // 是否收到响应
 	NeedComplement bool // 是否需要补包
 }
 
-// 定义全局变量，默认 0 表示未收到 ACK
-var AckReceived int
-var Mu3 sync.Mutex // 防止并发读写问题
+// 升级ACK
+var (
+	AckReceived int
+	Mu3         sync.Mutex
+)
 
-// 设置 ACK 状态
+// 设置ACK
 func SetAck(received bool) {
 	Mu3.Lock()
 	defer Mu3.Unlock()
@@ -47,7 +54,7 @@ func SetAck(received bool) {
 	}
 }
 
-// 读取 ACK 状态
+// 读取ACK
 func GetAck() int {
 	Mu3.Lock()
 	defer Mu3.Unlock()

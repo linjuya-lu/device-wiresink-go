@@ -8,7 +8,7 @@ import (
 
 func startHealthCheckLoop() {
 	go func() {
-		ticker := time.NewTicker(time.Second)
+		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 
 		for range ticker.C {
@@ -24,6 +24,10 @@ func startHealthCheckLoop() {
 
 			// 检查每台设备
 			for _, dev := range deviceNames {
+				//传感器本身维护
+				if dev == "TempHum01" || dev == "WaterLvl01" {
+					continue
+				}
 				rawTs, okTs := config.GetDeviceValue(dev, "LastDataTs")
 				rawPr, okPr := config.GetDeviceValue(dev, "period")
 				if !okTs || !okPr {
@@ -35,7 +39,7 @@ func startHealthCheckLoop() {
 				if !ok1 || !ok2 {
 					continue
 				}
-				// 判断是否超时： now - lastTs > 2 * period 秒
+				// 判断是否超时
 				deadline := int64(period) * 2 * int64(time.Second)
 				newState := uint8(0)
 				if now-lastTs > deadline {

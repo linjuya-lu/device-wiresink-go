@@ -5,7 +5,7 @@ labels: ["水位传感器", "友讯达水位传感器"]
 description: "水位传感器"
 
 deviceResources:
-  - name: "water-level"
+  - name: "WaterLevel"
     isHidden: false
     description: "当前水位"
     properties:
@@ -13,7 +13,7 @@ deviceResources:
       readWrite: "R"
       units: "cm"
       defaultValue: "0"
-  - name: "voltage"
+  - name: "BatVolt"
     isHidden: false
     description: "设备电压"
     properties:
@@ -21,7 +21,7 @@ deviceResources:
       readWrite: "R"
       units: "V"
       defaultValue: "0"
-  - name: "battery-level"
+  - name: "BatteryRemaining"
     isHidden: false
     description: "电池电量"
     properties:

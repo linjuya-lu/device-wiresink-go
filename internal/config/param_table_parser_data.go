@@ -36,7 +36,7 @@ var paramMap = map[ParamKey]ParamInfo{
 	{0b000, 0b00000011100}: {"HeartbeatStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000011101}: {"BatteryRemaining", "%", 2, "uint16", parseUint16},
 	{0b000, 0b00000011110}: {"BatVolt", "V", 4, "float32", parseFloat32},
-	{0b000, 0b00000011111}: {"SensorSelfTestStatus", "", 1, "uint8", parseUint8},
+	{0b000, 0b00000011111}: {"state", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000100000}: {"NetworkConnectionStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000100001}: {"PowerStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000100010}: {"DataCollectionInterval", "s", 2, "uint16", parseUint16},

@@ -13,3 +13,17 @@ deviceList:
     protocols:
       custom:
         type: "RS485"
+  - name: "TempHum01"
+    profileName: "TempHum"
+    description: "温湿度传感器"
+    labels: ["友讯达温湿度传感器01", "温湿度传感器01"]
+    protocols:
+      custom:
+        type: "LoRa"
+  - name: "WaterLvl01"
+    profileName: "WaterLvl"
+    description: "水位传感器"
+    labels: ["友讯达水位传感器01", "水位传感器01"]
+    protocols:
+      custom:
+        type: "LoRa"

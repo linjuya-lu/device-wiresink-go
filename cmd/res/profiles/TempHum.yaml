@@ -5,7 +5,7 @@ labels: ["温湿度传感器", "友讯达温湿度传感器"]
 description: "温湿度传感器"
 
 deviceResources:
-  - name: "temperature"
+  - name: "Temp"
     isHidden: false
     description: "温度值"
     properties:
@@ -13,7 +13,7 @@ deviceResources:
       readWrite: "R"
       units: "℃"
       defaultValue: "0"
-  - name: "humidity"
+  - name: "HumiAmbient"
     isHidden: false
     description: "湿度值"
     properties:
@@ -21,7 +21,7 @@ deviceResources:
       readWrite: "R"
       units: "%RH"
       defaultValue: "0"
-  - name: "voltage"
+  - name: "BatVolt"
     isHidden: false
     description: "供电电压"
     properties:
@@ -29,7 +29,7 @@ deviceResources:
       readWrite: "R"
       units: "V"
       defaultValue: "0"
-  - name: "battery-level"
+  - name: "BatteryRemaining"
     isHidden: false
     description: "电池电量"
     properties:

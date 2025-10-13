@@ -19,20 +19,20 @@ func BuildTimeParamFrame(sensorID [6]byte, requestSetFlag byte, timestamp uint32
 		return nil, fmt.Errorf("无效参数 %d", requestSetFlag)
 	}
 	buf := make([]byte, 0, 6+1+1+4+2)
-	// SensorID
+	// EID
 	buf = append(buf, sensorID[:]...)
-	//head：DataLen(4b=0) | FragInd(1b=0)<<3 | PacketType(3b)
+	//头
 	head := byte(0<<4) | byte(0<<3) | byte(packetTypeControl&0x07)
 	buf = append(buf, head)
-	//CtrlType+RequestSetFlag：7b ctrlType<<1 | 1b flag
+	//控制类型
 	ctrlByte := byte((ctrlTypeTimeParam&0x7F)<<1) | (requestSetFlag & 0x01)
 	buf = append(buf, ctrlByte)
-	// Timestamp(4字节)
-	// 查询时 timestamp=0；设置时请传入需要下发的世纪秒
+	// 时间戳
+	// 查询时为0；设置为世纪秒
 	tsBytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(tsBytes, timestamp)
 	buf = append(buf, tsBytes...)
-	//CRC16
+	//校验
 	crc := CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
@@ -45,26 +45,24 @@ func RestCommandBuildFrame(eidStr string, sensorID [6]byte, requestSetFlag byte,
 		return fmt.Errorf("invalid requestSetFlag %d, must be 0 or 1", requestSetFlag)
 	}
 
-	// 分配：6B SensorID + 1B head + 1B ctrl + 4B ts + 2B CRC
 	buf := make([]byte, 0, 6+1+1+4+2)
-	// SensorID
+	// EID
 	buf = append(buf, sensorID[:]...)
-	// head：DataLen(4b=0) | FragInd(1b=0)<<3 | PacketType(3b)
+	// 头
 	head := byte(0<<4) | byte(0<<3) | byte(packetTypeControl&0x07)
 	buf = append(buf, head)
-	// CtrlType+RequestSetFlag：7b ctrlType<<1 | 1b flag
+	// 控制类型
 	ctrlByte := byte((ctrlTypeTimeParam&0x7F)<<1) | (requestSetFlag & 0x01)
 	buf = append(buf, ctrlByte)
 	// Timestamp(4字节)
 	tsBytes := make([]byte, 4)
-	binary.LittleEndian.PutUint32(tsBytes, timestamp) // 如果协议是小端
+	binary.LittleEndian.PutUint32(tsBytes, timestamp)
 	buf = append(buf, tsBytes...)
-	// CRC16
+	// 校验
 	crc := CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
 	buf = append(buf, crcBytes...)
-	// 发送帧
 	relay.SendFrame(eidStr, buf)
 
 	return nil

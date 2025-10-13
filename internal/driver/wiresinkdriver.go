@@ -48,12 +48,11 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	d.sdk = sdk
 	d.lc = sdk.LoggingClient()
 	d.asyncCh = sdk.AsyncValuesChannel()
-	//MQTT初始化参数
-	brokerURL := "tcp://192.168.75.137:1883"
-	host, _ := os.Hostname()
-	clientID := fmt.Sprintf("Initialize wiresink-%s-%d", host, os.Getpid())
 
-	client, err := mqttclient.NewClient(brokerURL, clientID)
+	host, _ := os.Hostname()
+	clientID := fmt.Sprintf("wiresink-%s-%d", host, os.Getpid())
+
+	client, err := mqttclient.NewClient(config.BrokerURL, clientID)
 	if err != nil {
 		return fmt.Errorf("初始化 MQTT 客户端失败: %w", err)
 	}
@@ -66,11 +65,7 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 }
 
 func (d *WireSinkDriver) Start() error {
-	//配置文件目录
-	devicesYAML := "../cmd/res/devices/devices.yaml"
-	profilesDir := "../cmd/res/profiles"
-
-	if err := config.InitDeviceResources(devicesYAML, profilesDir); err != nil {
+	if err := config.InitDeviceResources(config.DevicesYAML, config.ProfilesDir); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
 
@@ -94,7 +89,7 @@ func (d *WireSinkDriver) Start() error {
 func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[string]models.ProtocolProperties, reqs []dsModels.CommandRequest) (res []*dsModels.CommandValue, err error) {
 	d.locker.Lock()
 	defer d.locker.Unlock()
-	d.lc.Infof("上层读取命令 : 设备=%s, 资源数=%d", deviceName, len(reqs))
+	d.lc.Debug("读取命令 : 设备=%s, 资源数=%d", deviceName, len(reqs))
 
 	values, ok := config.GetDeviceValues(deviceName)
 	if !ok {
@@ -126,7 +121,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 		if err != nil {
 			return nil, err
 		}
-		d.lc.Infof("HandleReadCommands函数 读取值: %s.%s = %v", deviceName, resName, val)
+		d.lc.Infof("读取值: %s.%s = %v", deviceName, resName, val)
 		res = append(res, cv)
 	}
 	return res, nil
@@ -136,7 +131,7 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 	d.locker.Lock()
 	defer d.locker.Unlock()
 
-	d.lc.Debug("HandleWriteCommands: 设备=%s, 请求数=%d", deviceName, len(reqs))
+	d.lc.Debug("设备=%s, 请求数=%d", deviceName, len(reqs))
 
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
@@ -182,13 +177,13 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 }
 
 func (d *WireSinkDriver) Stop(force bool) error {
-	d.lc.Info("Stop: device-wiresink driver is stopping...")
+	d.lc.Info("有线汇聚结束......")
 	close(config.WriteChan)
 	return nil
 }
 
 func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
-	d.lc.Debugf("AddDevice 新设备已添加: %s", deviceName)
+	d.lc.Debugf("新设备已添加: %s", deviceName)
 
 	dev, err := d.sdk.GetDeviceByName(deviceName)
 	if err != nil {
@@ -199,7 +194,7 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 
 	prof, err := d.sdk.GetProfileByName(profileName)
 	if err != nil {
-		return fmt.Errorf("AddDevice 获取设备配置文件 %s 失败: %w", profileName, err)
+		return fmt.Errorf("获取设备配置文件 %s 失败: %w", profileName, err)
 	}
 
 	for _, dr := range prof.DeviceResources {
@@ -207,52 +202,52 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 		defaultValue := dr.Properties.DefaultValue
 		valueType := dr.Properties.ValueType
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
-			return fmt.Errorf("AddDevice 初始化设备 %s 资源 %s 失败：%v", deviceName, resName, err)
+			return fmt.Errorf("初始化设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
-		d.lc.Debugf("AddDevice 已将设备 %s 的资源 %s 初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		d.lc.Debugf("已将设备 %s 的资源 %s 初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
 	}
 	return nil
 }
 
 func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
-	d.lc.Debugf("UpdateDevice Device %s is updated", deviceName)
+	d.lc.Debugf("Device %s is updated", deviceName)
 
 	dev, err := d.sdk.GetDeviceByName(deviceName)
 	if err != nil {
-		return fmt.Errorf("UpdateDevice 获取设备 %s 失败: %w", deviceName, err)
+		return fmt.Errorf("获取设备 %s 失败: %w", deviceName, err)
 	}
 	profileName := dev.ProfileName
 	prof, err := d.sdk.GetProfileByName(profileName)
 	if err != nil {
-		return fmt.Errorf("UpdateDevice 获取设备配置文件 %s 失败: %w", profileName, err)
+		return fmt.Errorf("获取设备配置文件 %s 失败: %w", profileName, err)
 	}
 	for _, dr := range prof.DeviceResources {
 		resName := dr.Name
 		defaultValue := dr.Properties.DefaultValue
 		valueType := dr.Properties.ValueType
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
-			return fmt.Errorf("UpdateDevice 更新设备 %s 资源 %s 失败：%v", deviceName, resName, err)
+			return fmt.Errorf("更新设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
-		d.lc.Debugf("UpdateDevice 已将设备 %s 的资源 %s 重新初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		d.lc.Debugf("已将设备 %s 的资源 %s 重新初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
 	}
 
-	d.lc.Infof("UpdateDevice 已刷新设备 %s 的资源值为最新默认配置", deviceName)
+	d.lc.Infof("已刷新设备 %s 的资源值为最新默认配置", deviceName)
 	return nil
 }
 
 func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]models.ProtocolProperties) error {
-	d.lc.Debugf("RemoveDevice Device %s is removed", deviceName)
+	d.lc.Debugf("Device %s is removed", deviceName)
 
 	if err := config.DeleteDeviceValues(deviceName); err != nil {
-		d.lc.Errorf("RemoveDevice 删除设备 %s 的运行时值失败: %v", deviceName, err)
-		return fmt.Errorf("RemoveDevice 删除设备 %s 的运行时值失败: %w", deviceName, err)
+		d.lc.Errorf("删除设备 %s 的运行时值失败: %v", deviceName, err)
+		return fmt.Errorf("删除设备 %s 的运行时值失败: %w", deviceName, err)
 	}
 
 	if err := config.DeleteSensorIDMappingsByDevice(deviceName); err != nil {
-		d.lc.Errorf("RemoveDevice 删除设备 %s 的传感器映射失败: %v", deviceName, err)
-		return fmt.Errorf("RemoveDevice 删除设备 %s 的传感器映射失败: %w", deviceName, err)
+		d.lc.Errorf("删除设备 %s 的传感器映射失败: %v", deviceName, err)
+		return fmt.Errorf("删除设备 %s 的传感器映射失败: %w", deviceName, err)
 	}
-	d.lc.Infof("RemoveDevice 已移除设备 %s 的所有运行时数据和映射", deviceName)
+	d.lc.Infof("已移除设备 %s 的所有运行时数据和映射", deviceName)
 	return nil
 }
 
@@ -261,7 +256,7 @@ func (d *WireSinkDriver) ValidateDevice(device models.Device) error {
 	return nil
 }
 func (d *WireSinkDriver) Discover() error {
-	return fmt.Errorf("ValidateDevice 未实现")
+	return fmt.Errorf("Discover 未实现")
 }
 
 // EdgeX类型匹配
