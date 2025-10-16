@@ -6,10 +6,31 @@ ENABLE_FULL_RELRO=true
 ENABLE_PIE=true
 
 MICROSERVICES=cmd/device-wiresink
-
 .PHONY: $(MICROSERVICES)
 
-ARCH=$(shell uname -m)
+# ========= 架构配置（支持命令行覆盖：make ARCH=arm64） =========
+ARCH ?= aarch64
+
+# 规范化 ARCH -> GOOS/GOARCH/GOARM
+ifeq ($(ARCH),aarch64)
+  GOOS   ?= linux
+  GOARCH ?= arm64
+else ifeq ($(ARCH),arm64)
+  GOOS   ?= linux
+  GOARCH ?= arm64
+else ifneq (,$(filter armv7l armhf arm,$(ARCH)))
+  GOOS   ?= linux
+  GOARCH ?= arm
+  GOARM  ?= 7
+else ifneq (,$(filter x86_64 amd64,$(ARCH)))
+  GOOS   ?= linux
+  GOARCH ?= amd64
+else
+  GOOS   ?= $(shell go env GOOS)
+  GOARCH ?= $(shell go env GOARCH)
+endif
+
+export GOOS GOARCH GOARM
 
 DOCKERS=docker_device_wiresink_go
 .PHONY: $(DOCKERS)
@@ -20,6 +41,7 @@ SDKVERSION=$(shell cat ./go.mod | grep 'github.com/edgexfoundry/device-sdk-go/v4
 
 ifeq ($(ENABLE_FULL_RELRO), true)
 	ENABLE_FULL_RELRO_GOFLAGS = -bindnow
+	# NOTE: -bindnow 仅对使用外部链接器时生效；当前 CGO=0 走内部链接器，等需要 FULL RELRO 再改用 -extldflags。
 endif
 
 GOFLAGS=-ldflags "-s -w -X github.com/edgexfoundry/device-wiresink-go.Version=$(VERSION) \
@@ -34,17 +56,18 @@ endif
 build: $(MICROSERVICES)
 
 build-nats:
-	make -e ADD_BUILD_TAGS=include_nats_messaging build
+	$(MAKE) -e ADD_BUILD_TAGS=include_nats_messaging build
 
 build-noziti:
-	make -e ADD_BUILD_TAGS=no_openziti build
+	$(MAKE) -e ADD_BUILD_TAGS=no_openziti build
 
 tidy:
 	go mod tidy
 
+# ========= 关键修改：把 GOOS/GOARCH/GOARM 传给 go build =========
 cmd/device-wiresink:
-	CGO_ENABLED=0 go build -tags "$(ADD_BUILD_TAGS)" $(GOFLAGS) -o $@ ./cmd
-
+	GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) CGO_ENABLED=0 \
+	go build -tags "$(ADD_BUILD_TAGS)" $(GOFLAGS) -o $@ ./cmd
 
 unittest:
 	go test ./... -coverprofile=coverage.out
@@ -75,11 +98,18 @@ docker_device_wiresink_go:
 		-t edgexfoundry/device-wiresink:$(VERSION)-dev \
 		.
 
-docker-nats:
-	make -e ADD_BUILD_TAGS=include_nats_messaging docker
-
-docker-noziti:
-	make -e ADD_BUILD_TAGS=no_openziti docker
+# （可选）arm64 镜像：在 x86 主机用 buildx 也能出 ARM64
+docker_device_wiresink_go_arm64:
+	docker buildx build --platform linux/arm64 \
+		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
+		--label "git_sha=$(GIT_SHA)" \
+		-t edgexfoundry/device-wiresink:$(GIT_SHA)-arm64 \
+		-t edgexfoundry/device-wiresink:$(VERSION)-dev-arm64 \
+		--load .
 
 vendor:
 	CGO_ENABLED=0 go mod vendor
+
+# 调试用：打印当前目标架构
+print-arch:
+	@echo "ARCH=$(ARCH)  ->  GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)"

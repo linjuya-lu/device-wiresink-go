@@ -28,8 +28,6 @@ type WireSinkDriver struct {
 
 	upgMu     sync.Mutex //异步升级锁
 	upgrading map[string]context.CancelFunc
-	progCh    chan UpgradeProgress // 进度/结果上报通道
-
 }
 
 var (
@@ -81,7 +79,8 @@ func (d *WireSinkDriver) Start() error {
 	config.UpdateSensorMapping()
 
 	startHealthCheckLoop() // 健康检查
-
+	//心跳上传
+	d.StartAsyncReporter()
 	d.lc.Infof("有线汇聚已启动......")
 	return nil
 }
@@ -112,6 +111,78 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
+		// 时间查询
+		if resName == "cmdTimeParamQry" {
+			if err := d.handleTimeParameterSet(deviceName); err != nil {
+				return nil, err
+			}
+			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
+			if cerr != nil {
+				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+			}
+			res = append(res, cv)
+			continue
+		}
+		// 复位设置
+		if resName == "cmdReSet" {
+			if err := d.handleResetCommand(deviceName); err != nil {
+				return nil, err
+			}
+			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
+			if cerr != nil {
+				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+			}
+			res = append(res, cv)
+			continue
+		}
+		// 时间设置
+		if resName == "cmdTimeParamSet" {
+			if err := d.handleTimeParameterSet(deviceName); err != nil {
+				return nil, err
+			}
+			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
+			if cerr != nil {
+				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+			}
+			res = append(res, cv)
+			continue
+		}
+		// 工况查询
+		if resName == "cmdOperDataQ" {
+			if err := d.handleIdMoniDataQuery(deviceName); err != nil {
+				return nil, err
+			}
+			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
+			if cerr != nil {
+				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+			}
+			res = append(res, cv)
+			continue
+		}
+		// 拓扑查询
+		if resName == "cmdTopoDiagQry" {
+			config.ClearTopo()
+
+			if err := d.handleRouterParameterQuery(deviceName); err != nil {
+				return nil, err
+			}
+			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
+			if cerr != nil {
+				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+			}
+			res = append(res, cv)
+			continue
+		}
+		// 升级触发
+		if resName == "cmdUpgrade" {
+			_ = d.startUpgradeAsync(deviceName)
+			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
+			if cerr != nil {
+				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
+			}
+			res = append(res, cv)
+			continue
+		}
 		// 常规资源
 		val, exists := values[resName]
 		if !exists {
@@ -135,43 +206,9 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
-		cv := params[i]
-		v, _ := cv.Int8Value()
+
 		d.lc.Debug("常规命令 %d Resource=%s", i, resName)
-		// 时间查询
-		if resName == "cmdTimeParamQry" && v == 1 {
-			if err := d.handleTimeParameterQuery(deviceName); err != nil {
-				return err
-			}
-		}
-		// 时间设置
-		if resName == "cmdTimeParamSet" && v == 1 {
-			if err := d.handleTimeParameterSet(deviceName); err != nil {
-				return err
-			}
-		}
-		// 复位设置
-		if resName == "cmdReSet" && v == 1 {
-			if err := d.handleResetCommand(deviceName); err != nil {
-				return err
-			}
-		}
-		// 工况查询
-		if resName == "cmdOperDataQ" && v == 1 {
-			if err := d.handleIdMoniDataQuery(deviceName); err != nil {
-				return err
-			}
-		}
-		// 拓扑查询
-		if resName == "cmdTopoDiagQry" && v == 1 {
-			if err := d.handleRouterParameterQuery(deviceName); err != nil {
-				return err
-			}
-		}
-		// 升级命令
-		if resName == "cmdUpgrade" && v == 1 {
-			_ = d.startUpgradeAsync(deviceName)
-		}
+
 	}
 	return nil
 }

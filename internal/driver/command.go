@@ -93,36 +93,6 @@ func (d *WireSinkDriver) handleResetCommand(deviceName string) error {
 	return nil
 }
 
-func (d *WireSinkDriver) handleTimeParameterQuery(deviceName string) error {
-	d.lc.Debug("时间参数查询: %s", deviceName)
-
-	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
-	if !ok {
-		err := fmt.Errorf("时间参数查询 设备 %s 的 EID 未初始化", deviceName)
-		d.lc.Error(err.Error())
-		return err
-	}
-
-	eidBytes, err := hex.DecodeString(config.EidStr)
-	if err != nil {
-		err = fmt.Errorf("时间参数查询 EID[%s] 转十六进制失败: %w", config.EidStr, err)
-		d.lc.Error(err.Error())
-		return err
-	}
-	if len(eidBytes) != 6 {
-		err = fmt.Errorf("时间参数查询 EID 长度不对，期望 6 字节，实际 %d 字节", len(eidBytes))
-		d.lc.Error(err.Error())
-		return err
-	}
-	var sensorID [6]byte
-	copy(sensorID[:], eidBytes)
-	reqFrame, _ := frameparser.BuildTimeParamFrame(sensorID, 0, 0)
-	eidStr, _ := eidValue.(string)
-	relay.SendFrame(eidStr, reqFrame)
-	d.lc.Infof("时间参数查询 已发送时间参数查询命令到设备 %s (EID: %s)", deviceName, eidStr)
-	return nil
-}
-
 func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
 	d.lc.Debug("检测数据查询: %s", deviceName)
 	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
@@ -184,6 +154,7 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 		return fmt.Errorf("拓扑查询 构造拓扑查询失败: %w", err)
 	}
 	eidStr, _ := eidValue.(string)
+
 	relay.SendFrame(eidStr, frame)
 	d.lc.Infof("已发送拓扑查询命令到设备 %s (EID: %s)", deviceName, eidStr)
 	return nil
@@ -472,13 +443,12 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 			delete(d.upgrading, deviceName)
 			d.upgMu.Unlock()
 		}()
-
-		d.report(deviceName, "start", nil)
+		config.SetDeviceValue(deviceName, "upgradeStatus", "开始升级")
 
 		// 确保TCP服务器已启动
 		actualPort, err := ensureUpgradeTCPServer(config.UpgradeTCPPort, deviceName)
 		if err != nil {
-			d.report(deviceName, "failed", err)
+			config.SetDeviceValue(deviceName, "upgradeStatus", "升级失败")
 			d.lc.Errorf("start tcp server failed: %v", err)
 			return
 		}
@@ -493,7 +463,7 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 			0,
 			10*time.Second,
 		); err != nil {
-			d.report(deviceName, "failed", err)
+			config.SetDeviceValue(deviceName, "upgradeStatus", "升级失败")
 			d.lc.Errorf("publish upgrade activation (decimal) failed: %v", err)
 			return
 		}
@@ -501,12 +471,12 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 
 		// TCP 升级流程
 		if err := d.handleUpgradeQuery(ctx, deviceName); err != nil {
-			d.report(deviceName, "failed", err)
+			config.SetDeviceValue(deviceName, "upgradeStatus", "升级失败")
 			d.lc.Errorf("upgrade %s failed: %v", deviceName, err)
 			return
 		}
 
-		d.report(deviceName, "done", nil)
+		config.SetDeviceValue(deviceName, "upgradeStatus", "升级完成")
 		d.lc.Infof("upgrade %s finished", deviceName)
 	}()
 	upgradeListenerMu.Lock()
@@ -517,15 +487,6 @@ func (d *WireSinkDriver) startUpgradeAsync(deviceName string) error {
 	upgradeListenerMu.Unlock()
 
 	return nil
-}
-
-// 上报状态
-func (d *WireSinkDriver) report(dev, stage string, err error) {
-	select {
-	case d.progCh <- UpgradeProgress{Device: dev, Stage: stage, Err: err}:
-	default:
-		// 丢弃
-	}
 }
 
 // 轮询等待全局 ACK==1，支持 ctx 取消 & 超时

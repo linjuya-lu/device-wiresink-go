@@ -6,7 +6,7 @@ description: "水位传感器"
 
 deviceResources:
   - name: "WaterLevel"
-    isHidden: false
+    isHidden: true
     description: "当前水位"
     properties:
       valueType: "Float32"
@@ -14,7 +14,7 @@ deviceResources:
       units: "cm"
       defaultValue: "0"
   - name: "BatVolt"
-    isHidden: false
+    isHidden: true
     description: "设备电压"
     properties:
       valueType: "Float32"
@@ -22,14 +22,14 @@ deviceResources:
       units: "V"
       defaultValue: "0"
   - name: "BatteryRemaining"
-    isHidden: false
+    isHidden: true
     description: "电池电量"
     properties:
       valueType: "Uint16"
       readWrite: "R"
       units: "%"
       defaultValue: "0"
-  - name: "state"
+  - name: "heatbeat"
     isHidden: true
     description: "传感器运行状态"
     properties:
@@ -38,14 +38,14 @@ deviceResources:
       units: "code"
       defaultValue: "0"
   - name: "eid"
-    isHidden: false                    
+    isHidden: true                    
     description: "设备标识"
     properties:
       valueType: "String"            
       readWrite: "R"                 
       units: ""                      
       defaultValue: "238A0821BEF2"               
-  - name: "AsyncReporting"
+  - name: "AsyncData"
     isHidden: true
     description: "资源上传通道"
     properties:
@@ -53,5 +53,38 @@ deviceResources:
       readWrite: "R"
       units: ""
       defaultValue: "0"
-
+  - name: "Heartbeat"
+    isHidden: true
+    description: "心跳通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
+  - name: "LastDataTs"                       # 最新时间戳(Unix 纳秒）
+    isHidden: true
+    description: "最新时间戳"
+    properties:
+      valueType: "Int64"                            # 64 位整数，纳秒级
+      readWrite: "R"                                
+      units: "ns"
+      defaultValue: "0"
+  - name: "period"
+    isHidden: true
+    description: "上报周期"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "1200"
+deviceCommands:
+  -
+    name: "WaterLvlRes"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "WaterLevel", defaultValue: "0" }
+      - { deviceResource: "BatVolt", defaultValue: "0" }
+      - { deviceResource: "BatteryRemaining", defaultValue: "0" }
+      - { deviceResource: "heatbeat", defaultValue: "0" }
       

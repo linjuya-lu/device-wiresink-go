@@ -5,6 +5,70 @@ labels: ["汇聚网关", "汇聚节点"]
 description: "汇聚节点"
 
 deviceResources: 
+  - name: "WindSpd10mAvg"                
+    isHidden: true                   
+    description: "平均风速"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "WindDir10mAvg"                
+    isHidden: true                   
+    description: "平均风向"
+    properties:
+      valueType: "Int16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "WindSpdMax"                
+    isHidden: true                   
+    description: "最大风速"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "TempAmbient"                
+    isHidden: true                   
+    description: "环境温度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "HumiAmbient"                
+    isHidden: true                   
+    description: "环境湿度"
+    properties:
+      valueType: "Uint16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Pressure"                
+    isHidden: true                  
+    description: "大气气压"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "Rain10m"                
+    isHidden: true                   
+    description: "雨量"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "SolarRad"                
+    isHidden: true                   
+    description: "光照强度"
+    properties:
+      valueType: "Uint16"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
   - name: "eid"               
     isHidden: true                   
     description: "设备标识"
@@ -45,7 +109,7 @@ deviceResources:
       readWrite: "R"                                
       units: "ns"
       defaultValue: "0"
-  - name: "state"                               
+  - name: "heatbeat"                               
     isHidden: true
     description: "传感器运行状态"              # 0=正常,1=故障
     properties:
@@ -60,8 +124,8 @@ deviceResources:
       valueType: "Uint16"  
       readWrite: "R"
       units: "s"
-      defaultValue: "60"
-  - name: "AsyncReporting"
+      defaultValue: "1200"
+  - name: "AsyncData"
     isHidden: true
     description: "资源上传通道"
     properties:
@@ -77,52 +141,58 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "" 
-  - name: "cmdTimeParamQry"  
-    isHidden: true
+  - name: "cmdTimeParamQry"
+    isHidden: false
     description: "时间查询"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"
+      readWrite: "R"
       units: ""
-      defaultValue: "0"  
+      defaultValue: ""
+  - name: "timestampStr"
+    isHidden: false
+    description: "汇聚网关时间"
+    properties:
+      valueType: "String"
+      readWrite: "R"
   - name: "cmdTimeParamSet"  
-    isHidden: true
+    isHidden: false
     description: "时间设置"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"      
   - name: "cmdReSet"  
-    isHidden: true
+    isHidden: false
     description: "复位设置"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"   
   - name: "cmdOperDataQ"  
-    isHidden: true
+    isHidden: false
     description: "工况查询"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"   
   - name: "cmdUpgrade"  
-    isHidden: true
+    isHidden: false
     description: "升级命令"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"  
   - name: "cmdTopoDiagQry"   
-    isHidden: true
+    isHidden: false
     description: "拓扑查询"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"        
+      valueType: "String"    
+      readWrite: "R"        
       units: ""            
       defaultValue: "0"     
   - name: "topoList"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
@@ -132,17 +202,41 @@ deviceResources:
       valueType: "Object"    
       readWrite: "R"        
       units: ""            
-      defaultValue: "{}"     
+      defaultValue: "{}"  
+  - name: "upgradeStatus"
+    isHidden: false
+    description: "固件升级状态"
+    properties:
+      valueType: "String"
+      readWrite: "R"
+      units: ""
+      defaultValue: "空闲"   
+  - name: "Heartbeat"
+    isHidden: true
+    description: "心跳通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
 deviceCommands:
   -
     name: "ResSinkNode"
     readWrite: "R"
     isHidden: false
     resourceOperations:
+      - { deviceResource: "WindSpd10mAvg", defaultValue: "0" }
+      - { deviceResource: "WindDir10mAvg", defaultValue: "0" }
+      - { deviceResource: "WindSpdMax", defaultValue: "0" }
+      - { deviceResource: "TempAmbient", defaultValue: "0" }
+      - { deviceResource: "HumiAmbient", defaultValue: "0" }
+      - { deviceResource: "Pressure", defaultValue: "0" }
+      - { deviceResource: "Rain10m", defaultValue: "0" }
+      - { deviceResource: "SolarRad", defaultValue: "0" }
       - { deviceResource: "BatVolt", defaultValue: "0" }
       - { deviceResource: "ElecCurr", defaultValue: "0" }
       - { deviceResource: "Temp", defaultValue: "0" }
       - { deviceResource: "LastDataTs", defaultValue: "0" }
-      - { deviceResource: "state", defaultValue: "0" }
+      - { deviceResource: "heatbeat", defaultValue: "0" }
 
 

@@ -24,7 +24,7 @@ const (
 )
 
 // 特殊传感器解析
-var sensorParsers = map[string]func(frame []byte, deviceName string) error{
+var sensorParsers = map[string]func(frame []byte, deviceName string, cb CallbackFunc) error{
 	EIDWaterLevel:   parseWaterLevel,
 	EIDTempHumidity: parseTempHumidity,
 }
@@ -47,7 +47,7 @@ func remapType1(feature byte, code uint16) (byte, uint16) {
 	return feature & 0x07, code & 0x7FF
 }
 
-func parseWaterLevel(frame []byte, deviceName string) error {
+func parseWaterLevel(frame []byte, deviceName string, cb CallbackFunc) error {
 	// 头部解析
 	head := frame[6]
 	dataCount := int(head >> 4)
@@ -129,7 +129,10 @@ func parseWaterLevel(frame []byte, deviceName string) error {
 
 		parsed++
 	}
+	// 解析完成，调用回调
+	fmt.Printf("cb=%v, len(resourceValues)=%d\n", cb, len(resourceValues))
 
+	cb(deviceName, "AsyncData", resourceValues)
 	if len(resourceValues) > 0 {
 		log.Printf("%s parsed=%d resources=%v", deviceName, parsed, resourceValues)
 	}
@@ -154,7 +157,7 @@ func remapType(feature byte, code uint16) (byte, uint16) {
 	return feature & 0x07, code & 0x7FF
 }
 
-func parseTempHumidity(frame []byte, deviceName string) error {
+func parseTempHumidity(frame []byte, deviceName string, cb CallbackFunc) error {
 
 	// 头部解析
 	head := frame[6]
@@ -241,6 +244,10 @@ func parseTempHumidity(frame []byte, deviceName string) error {
 		}
 		parsed++
 	}
+	// 解析完成，调用回调
+	fmt.Printf("cb=%v, len(resourceValues)=%d\n", cb, len(resourceValues))
+
+	cb(deviceName, "AsyncData", resourceValues)
 
 	if len(resourceValues) > 0 {
 		log.Printf("%s parsed=%d resources=%v", deviceName, parsed, resourceValues)
@@ -248,14 +255,16 @@ func parseTempHumidity(frame []byte, deviceName string) error {
 	return nil
 }
 
+type ParserWithCB func([]byte, string, CallbackFunc) error
+
 // 捕获panic
-func safeCallParser(p func([]byte, string) error, frame []byte, deviceName string) (err error) {
+func safeCallParser(p ParserWithCB, frame []byte, deviceName string, cb CallbackFunc) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r)
+			err = fmt.Errorf("panic in parser: %v", r)
 		}
 	}()
-	return p(frame, deviceName)
+	return p(frame, deviceName, cb)
 }
 
 // LORA协议解析
@@ -283,16 +292,16 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				log.Printf("未知 EID=%s，跳过本帧", sensorID)
 				continue
 			}
-
+			//更新维护时间
+			onDataReceived(deviceName)
 			// 是否特殊处理
 			if parser, ok := sensorParsers[sensorID]; ok {
-				if err := safeCallParser(parser, frame, deviceName); err != nil {
+				if err := safeCallParser(parser, frame, deviceName, cb); err != nil {
 					log.Printf("EID=%s 专用解析失败: %v", sensorID, err)
 				}
 				continue
 			}
-			//更新维护时间
-			onDataReceived(deviceName)
+
 			// 头部
 			head := frame[6]
 			dataCount := int(head >> 4)
@@ -337,7 +346,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 					// 控制报文响应
 					handleFrameCtl(frame_ctl)
 					if config.ResourcesFlag {
-						cb(deviceName, "AsyncReporting", config.Resources1)
+						cb(deviceName, "AsyncData", config.Resources1)
 						config.ResourcesFlag = false
 					}
 					continue
@@ -404,7 +413,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			fmt.Printf("cb=%v, len(resourceValues)=%d\n", cb, len(resourceValues))
 
 			if cb != nil && len(resourceValues) > 0 {
-				cb(deviceName, "AsyncReporting", resourceValues)
+				cb(deviceName, "AsyncData", resourceValues)
 			}
 			if parsed < dataCount {
 				continue

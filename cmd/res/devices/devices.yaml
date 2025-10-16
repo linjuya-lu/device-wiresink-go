@@ -1,18 +1,11 @@
 deviceList:
   - name: "SinkNode01"
     profileName: "SinkNode"
-    description: "汇源汇聚节点01"
+    description: "汇源汇聚节点"
     labels: ["汇聚网关01", "汇聚节点01"]
     protocols:
       custom:
         type: "MQTT"
-  - name: "MicWeather01"
-    profileName: "MicWeather"
-    description: "微气象传感器"
-    labels: ["汇聚微气象01", "微气象传感器01"]
-    protocols:
-      custom:
-        type: "RS485"
   - name: "TempHum01"
     profileName: "TempHum"
     description: "温湿度传感器"
@@ -24,6 +17,13 @@ deviceList:
     profileName: "WaterLvl"
     description: "水位传感器"
     labels: ["友讯达水位传感器01", "水位传感器01"]
+    protocols:
+      custom:
+        type: "LoRa"
+  - name: "CoreClamp01"
+    profileName: "CoreClamp"
+    description: "铁芯夹件传感器"
+    labels: ["铁芯夹件传感器01", "铁芯夹件01"]
     protocols:
       custom:
         type: "LoRa"

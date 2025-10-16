@@ -9,7 +9,7 @@ var (
 
 	EidStr = "238A0841D828" // 模块EID
 
-	BrokerURL = "tcp://192.168.75.137:1883" //MQTT代理
+	BrokerURL = "tcp://172.16.19.91:1883" //MQTT代理
 
 	//配置文件目录
 	DevicesYAML = "../cmd/res/devices/devices.yaml"
@@ -21,6 +21,15 @@ var (
 	TopoList []NodeTopology
 	topoMu   sync.RWMutex
 )
+
+// 清空但保留底层容量
+func ClearTopo() (prev int) {
+	topoMu.Lock()
+	prev = len(TopoList)
+	TopoList = TopoList[:0]
+	topoMu.Unlock()
+	return
+}
 
 // 获取路由表
 func GetTopoList() []NodeTopology {

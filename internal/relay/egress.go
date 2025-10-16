@@ -12,10 +12,21 @@ import (
 )
 
 func SendFrame(srcAddr string, payload []byte) {
+	const topic = "edgex/server/response/device-wiresink/down"
 
-	hexStr1 := strings.ToUpper(hex.EncodeToString(payload))
+	hexStr := strings.ToUpper(hex.EncodeToString(payload))
 
-	mqttclient.PublishSinkCommand(mqttclient.MqttClient, "edgex/server/response/device-wiresink/down", srcAddr, hexStr1)
+	// 对于很长的帧，连续HEX只打印前 256 字节做预览
+	const previewN = 256
+	if n := len(payload); n > previewN {
+		fmt.Printf("[tx] hex(preview %d/%dB)=%s...", previewN, n,
+			strings.ToUpper(hex.EncodeToString(payload[:previewN])))
+	} else {
+		fmt.Printf("[tx] hex=%s", hexStr)
+	}
+
+	mqttclient.PublishSinkCommand(mqttclient.MqttClient, topic, srcAddr, hexStr)
+	fmt.Printf("已发布主题%s", topic)
 }
 
 type EdgexMessage struct {

@@ -1,0 +1,108 @@
+name: CoreClamp
+manufacturer: "四川汇源"
+model: "CoreClamp-20250731"
+labels: ["铁芯夹件", "铁芯接地电流与夹件电流监测设备", "铁芯夹件传感器"]
+description: "铁芯接地电流与夹件电流监测设备"
+
+deviceResources:
+  - name: "eid"               
+    isHidden: true                   
+    description: "设备标识"
+    properties:
+      valueType: "String"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "238A08262319"    
+  - name: "ClpGAmp"
+    isHidden: true   
+    description: "铁芯接地电流"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "A"
+      defaultValue: "0" 
+  - name: "CGAmp"
+    isHidden: true  
+    description: "夹件接地电流"
+    properties:
+      valueType: "Float32"
+      readWrite: "R"
+      units: "A"
+      defaultValue: "0" 
+  - name: "BatVolt"                
+    isHidden: true                   
+    description: "工作电压"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0" 
+  - name: "ElecCurr"                
+    isHidden: true                   
+    description: "工作电流"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"    
+  - name: "Temp"                
+    isHidden: true                   
+    description: "工作温度"
+    properties:
+      valueType: "Float32"            
+      readWrite: "R"                 
+      units: ""                      
+      defaultValue: "0"   
+  - name: "heatbeat"
+    isHidden: true
+    description: "工作状态"
+    properties:
+      valueType: "Uint8"
+      readWrite: "R"
+      units: "code"
+      defaultValue: "0"
+  - name: "Heartbeat"
+    isHidden: true
+    description: "心跳通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
+  - name: "period"
+    isHidden: true
+    description: "上报周期"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: "s"
+      defaultValue: "1200"
+  - name: "LastDataTs"                       # 最新时间戳(Unix 纳秒）
+    isHidden: true
+    description: "最新时间戳"
+    properties:
+      valueType: "Int64"                            # 64 位整数，纳秒级
+      readWrite: "R"                                
+      units: "ns"
+      defaultValue: "0"
+  - name: "AsyncData"
+    isHidden: true
+    description: "资源上传通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R"
+      units: ""
+      defaultValue: "0"
+deviceCommands:
+  -
+    name: "ResSinkNode"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "ClpGAmp", defaultValue: "0" }
+      - { deviceResource: "CGAmp", defaultValue: "0" }
+      - { deviceResource: "BatVolt", defaultValue: "0" }
+      - { deviceResource: "ElecCurr", defaultValue: "0" }
+      - { deviceResource: "Temp", defaultValue: "0" }
+      - { deviceResource: "heatbeat", defaultValue: "0" }
+
