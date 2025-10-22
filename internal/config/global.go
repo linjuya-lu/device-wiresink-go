@@ -1,6 +1,9 @@
 package config
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 var (
 	UpgradeTCPPort uint32 = 12345 // TCP端口
@@ -18,15 +21,20 @@ var (
 
 // 路由表
 var (
-	TopoList []NodeTopology
-	topoMu   sync.RWMutex
+	TopoList    []NodeTopology
+	topoIndex   = map[string]int{} // EID -> index
+	topoMu      sync.RWMutex
+	topoLastAt  time.Time           // 最近合并时间
+	topoIdleTTL = 600 * time.Second // 超过这个空闲视为新一轮
 )
 
 // 清空但保留底层容量
 func ClearTopo() (prev int) {
 	topoMu.Lock()
 	prev = len(TopoList)
-	TopoList = TopoList[:0]
+	TopoList = TopoList[:0] // 只清长度，保留容量
+	topoIndex = make(map[string]int)
+	topoLastAt = time.Time{} // 清掉时间戳
 	topoMu.Unlock()
 	return
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 )
 
 type ParamKey struct {
@@ -31,7 +32,7 @@ var paramMap = map[ParamKey]ParamInfo{
 	{0b000, 0b00000000110}: {"AmountOfSubstance", "mol", 4, "float32", parseFloat32},
 	{0b000, 0b00000000111}: {"LuminousIntensity", "cd", 4, "float32", parseFloat32},
 	//拓扑解析
-	{0b000, 0b00000001000}: {"topoList", "", -1, "", parseTopo},
+	{0b000, 0b00000001000}: {"resourceTopologyDiagram", "", -1, "", parseTopo},
 	// 状态量 & 扩展
 	{0b000, 0b00000011100}: {"HeartbeatStatus", "", 1, "uint8", parseUint8},
 	{0b000, 0b00000011101}: {"BatteryRemaining", "%", 2, "uint16", parseUint16},
@@ -384,30 +385,21 @@ func parseInt16(data []byte) (any, error) {
 	return val, nil
 }
 
+// 拓扑解析并合并
 func parseTopo(data []byte) (any, error) {
 	n := len(data)
 
+	// 粗判“像一个节点”的起点：6字节EID + , + state + , + type + , + 6字节parent
 	looksLikeNode := func(i int) bool {
 		if i+16 > n {
 			return false
 		}
-		return data[i+6] == 0x2C &&
+		return data[i+6] == 0x2C && // ','
 			data[i+8] == 0x2C &&
 			data[i+10] == 0x2C
 	}
 
-	// 找到第一个节点起点
-	i := 0
-	for i < n && !looksLikeNode(i) {
-		i++
-	}
-	if i >= n {
-		return nil, fmt.Errorf("拓扑解析 未找到节点起点，数据不符合约定")
-	}
-
-	var topoList []NodeTopology
-
-	// 6字节转 12 位大写十六进制
+	// 6字节转12位大写十六进制
 	toHex12 := func(b []byte) string {
 		const hexdigits = "0123456789ABCDEF"
 		dst := make([]byte, 12)
@@ -419,69 +411,99 @@ func parseTopo(data []byte) (any, error) {
 		return string(dst)
 	}
 
+	// 找到第一条节点的起点
+	i := 0
+	for i < n && !looksLikeNode(i) {
+		i++
+	}
+	if i >= n {
+		return nil, fmt.Errorf("拓扑解析 未找到节点起点，数据不符合约定")
+	}
+
+	// 解析当前这一帧的所有节点
+	var entries []NodeTopology
 	for i < n {
 		if !looksLikeNode(i) {
 			break
 		}
+
+		// EID
 		eid := data[i : i+6]
 		i += 6
 
+		// ',' state ','
 		if i >= n || data[i] != 0x2C {
 			return nil, fmt.Errorf("节点缺少逗号分隔(1)")
 		}
 		i++
-
 		if i >= n {
 			return nil, fmt.Errorf("节点缺少state字节")
 		}
 		stateByte := data[i]
 		i++
-
 		if i >= n || data[i] != 0x2C {
 			return nil, fmt.Errorf("节点缺少逗号分隔(2)")
 		}
 		i++
 
+		// type ','
 		if i >= n {
 			return nil, fmt.Errorf("节点缺少type字节")
 		}
 		typeByte := data[i]
 		i++
-
 		if i >= n || data[i] != 0x2C {
 			return nil, fmt.Errorf("节点缺少逗号分隔(3)")
 		}
 		i++
-
+		// parent(6)
 		if i+6 > n {
 			return nil, fmt.Errorf("节点缺少父EID字节")
 		}
 		parent := data[i : i+6]
 		i += 6
 
-		topology := NodeTopology{
-			EID:    toHex12(eid),                 // 6字节→12位HEX（大写）
-			State:  strconv.Itoa(int(stateByte)), // 单字节数值→"0"/"1"/"2"
-			Type:   strconv.Itoa(int(typeByte)),  // 同上
+		entries = append(entries, NodeTopology{
+			EID:    toHex12(eid),
+			State:  strconv.Itoa(int(stateByte)),
+			Type:   strconv.Itoa(int(typeByte)),
 			Parent: toHex12(parent),
-		}
-		topoList = append(topoList, topology)
+		})
 
-		if i < n && data[i] == 0x24 {
+		// 本帧内节点分隔符：'$'
+		if i < n && data[i] == 0x24 { // '$'
 			i++
 			continue
 		}
-
+		// 紧跟下一个节点
 		if i < n && looksLikeNode(i) {
 			continue
 		}
 		break
 	}
 
-	// 更新
+	// 合并
+	now := time.Now()
 	topoMu.Lock()
-	TopoList = topoList
+
+	// 空闲超时：认为开始新一轮快照，自动清空
+	if topoIdleTTL > 0 && !topoLastAt.IsZero() && now.Sub(topoLastAt) > topoIdleTTL {
+		TopoList = TopoList[:0]
+		topoIndex = make(map[string]int)
+	}
+	topoLastAt = now
+
+	for _, e := range entries {
+		if idx, ok := topoIndex[e.EID]; ok {
+			TopoList[idx] = e // 更新已存在项
+		} else {
+			topoIndex[e.EID] = len(TopoList)
+			TopoList = append(TopoList, e)
+		}
+	}
+
+	snapshot := append([]NodeTopology(nil), TopoList...)
 	topoMu.Unlock()
 
-	return topoList, nil
+	return snapshot, nil
 }

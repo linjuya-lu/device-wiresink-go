@@ -97,7 +97,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
 		// 请求路由
-		if resName == "topoList" {
+		if resName == "resourceTopologyDiagram" {
 			topo := config.GetTopoList()
 			fmt.Printf("拓扑路由:%s", topo)
 			cv, cerr := dsModels.NewCommandValue(

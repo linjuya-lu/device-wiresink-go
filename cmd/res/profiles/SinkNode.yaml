@@ -195,7 +195,7 @@ deviceResources:
       readWrite: "R"        
       units: ""            
       defaultValue: "0"     
-  - name: "topoList"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
+  - name: "resourceTopologyDiagram"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
     isHidden: false
     description: "路由信息"
     properties:

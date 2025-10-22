@@ -32,7 +32,7 @@ endif
 
 export GOOS GOARCH GOARM
 
-DOCKERS=docker_device_wiresink_go
+DOCKERS=docker_device_wiresink_go_arm64
 .PHONY: $(DOCKERS)
 
 VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
@@ -64,26 +64,10 @@ build-noziti:
 tidy:
 	go mod tidy
 
-# ========= 关键修改：把 GOOS/GOARCH/GOARM 传给 go build =========
 cmd/device-wiresink:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) CGO_ENABLED=0 \
 	go build -tags "$(ADD_BUILD_TAGS)" $(GOFLAGS) -o $@ ./cmd
 
-unittest:
-	go test ./... -coverprofile=coverage.out
-
-lint:
-	@which golangci-lint >/dev/null || echo "WARNING: go linter not installed. To install, run make install-lint"
-	@if [ "z${ARCH}" = "zx86_64" ] && which golangci-lint >/dev/null ; then golangci-lint run --config .golangci.yml ; else echo "WARNING: Linting skipped (not on x86_64 or linter not installed)"; fi
-
-install-lint:
-	sudo curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin v1.61.0
-
-test: unittest lint
-	go vet ./...
-	gofmt -l $$(find . -type f -name '*.go'| grep -v "/vendor/")
-	[ "`gofmt -l $$(find . -type f -name '*.go'| grep -v "/vendor/")`" = "" ]
-	./bin/test-attribution-txt.sh
 
 clean:
 	rm -f $(MICROSERVICES)
@@ -98,7 +82,7 @@ docker_device_wiresink_go:
 		-t edgexfoundry/device-wiresink:$(VERSION)-dev \
 		.
 
-# （可选）arm64 镜像：在 x86 主机用 buildx 也能出 ARM64
+# arm64 镜像：在 x86 主机用 buildx 也能出 ARM64
 docker_device_wiresink_go_arm64:
 	docker buildx build --platform linux/arm64 \
 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
@@ -110,6 +94,6 @@ docker_device_wiresink_go_arm64:
 vendor:
 	CGO_ENABLED=0 go mod vendor
 
-# 调试用：打印当前目标架构
+# 打印当前目标架构
 print-arch:
 	@echo "ARCH=$(ARCH)  ->  GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)"
