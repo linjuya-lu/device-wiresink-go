@@ -6,7 +6,7 @@ description: "温湿度传感器"
 
 deviceResources:
   - name: "Temp"
-    isHidden: false
+    isHidden: true
     description: "温度值"
     properties:
       valueType: "Float32"
@@ -14,7 +14,7 @@ deviceResources:
       units: "℃"
       defaultValue: "0"
   - name: "HumiAmbient"
-    isHidden: false
+    isHidden: true
     description: "湿度值"
     properties:
       valueType: "Float32"
@@ -22,7 +22,7 @@ deviceResources:
       units: "%RH"
       defaultValue: "0"
   - name: "BatVolt"
-    isHidden: false
+    isHidden: true
     description: "供电电压"
     properties:
       valueType: "Float32"
@@ -30,7 +30,7 @@ deviceResources:
       units: "V"
       defaultValue: "0"
   - name: "BatteryRemaining"
-    isHidden: false
+    isHidden: true
     description: "电池电量"
     properties:
       valueType: "Uint16"
@@ -61,7 +61,23 @@ deviceResources:
       readWrite: "R"
       units: ""
       defaultValue: "0"
-
-
-
+  - name: "hBeat"
+    isHidden: true
+    description: "心跳通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R" 
+      units: ""
+      defaultValue: "0" 
+deviceCommands:
+  -
+    name: "TempHum"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "Temp", defaultValue: "0" }
+      - { deviceResource: "HumiAmbient", defaultValue: "0" }
+      - { deviceResource: "BatVolt", defaultValue: "0" }
+      - { deviceResource: "BatteryRemaining", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
       

@@ -16,3 +16,4 @@ Device:
   AsyncBufferSize: 16           # 设置异步上报缓冲通道个数
   ProfilesDir: "./res/profiles"
   DevicesDir: "./res/devices"
+#  DataTransform = true

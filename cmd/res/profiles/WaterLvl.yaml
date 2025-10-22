@@ -6,7 +6,7 @@ description: "水位传感器"
 
 deviceResources:
   - name: "WaterLevel"
-    isHidden: false
+    isHidden: true
     description: "当前水位"
     properties:
       valueType: "Float32"
@@ -14,7 +14,7 @@ deviceResources:
       units: "cm"
       defaultValue: "0"
   - name: "BatVolt"
-    isHidden: false
+    isHidden: true
     description: "设备电压"
     properties:
       valueType: "Float32"
@@ -22,7 +22,7 @@ deviceResources:
       units: "V"
       defaultValue: "0"
   - name: "BatteryRemaining"
-    isHidden: false
+    isHidden: true
     description: "电池电量"
     properties:
       valueType: "Uint16"
@@ -38,7 +38,7 @@ deviceResources:
       units: "code"
       defaultValue: "0"
   - name: "eid"
-    isHidden: false                    
+    isHidden: true                    
     description: "设备标识"
     properties:
       valueType: "String"            
@@ -53,5 +53,22 @@ deviceResources:
       readWrite: "R"
       units: ""
       defaultValue: "0"
-
+  - name: "hBeat"
+    isHidden: true
+    description: "心跳通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R" 
+      units: ""
+      defaultValue: "0" 
+deviceCommands:
+  -
+    name: "WaterLvlRes"
+    readWrite: "R"
+    isHidden: false
+    resourceOperations:
+      - { deviceResource: "WaterLevel", defaultValue: "0" }
+      - { deviceResource: "BatVolt", defaultValue: "0" }
+      - { deviceResource: "BatteryRemaining", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
       

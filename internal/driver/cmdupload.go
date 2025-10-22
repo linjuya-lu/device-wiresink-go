@@ -5,6 +5,7 @@ import (
 
 	dsModels "github.com/edgexfoundry/device-sdk-go/v4/pkg/models"
 	"github.com/edgexfoundry/go-mod-core-contracts/v4/common"
+	"github.com/linjuya-lu/device-wiresink-go/internal/config"
 )
 
 func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]interface{}) {
@@ -62,4 +63,31 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 	d.asyncCh <- asyncValues
 	d.lc.Infof("异步值上传: 设备=%s 资源=%s 数量=%d",
 		deviceName, sourceName, len(cvs))
+}
+
+// 心跳上传
+func (d *WireSinkDriver) StartAsyncReporter() {
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			config.Mu.RLock()
+			for deviceName, resMap := range config.ValuesMap {
+				if resMap == nil {
+					continue
+				}
+
+				stateVal, ok := resMap["state"]
+				if !ok {
+					continue
+				}
+				values := map[string]interface{}{
+					"state": stateVal,
+				}
+				d.AsyncReporting(deviceName, "hBeat", values)
+			}
+			config.Mu.RUnlock()
+		}
+	}()
 }

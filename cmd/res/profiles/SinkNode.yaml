@@ -77,52 +77,58 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "" 
-  - name: "cmdTimeParamQry"  
-    isHidden: true
+  - name: "cmdTimeParamQry"
+    isHidden: false
     description: "时间查询"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"
+      readWrite: "R"
       units: ""
-      defaultValue: "0"  
+      defaultValue: ""
+  - name: "timestampStr"
+    isHidden: false
+    description: "汇聚网关时间"
+    properties:
+      valueType: "String"
+      readWrite: "R"
   - name: "cmdTimeParamSet"  
-    isHidden: true
+    isHidden: false
     description: "时间设置"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"      
   - name: "cmdReSet"  
-    isHidden: true
+    isHidden: false
     description: "复位设置"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"   
   - name: "cmdOperDataQ"  
-    isHidden: true
+    isHidden: false
     description: "工况查询"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"   
   - name: "cmdUpgrade"  
-    isHidden: true
+    isHidden: false
     description: "升级命令"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"       
+      valueType: "String"    
+      readWrite: "R"       
       units: ""
       defaultValue: "0"  
   - name: "cmdTopoDiagQry"   
-    isHidden: true
+    isHidden: false
     description: "拓扑查询"
     properties:
-      valueType: "Int8"    
-      readWrite: "W"        
+      valueType: "String"    
+      readWrite: "R"        
       units: ""            
       defaultValue: "0"     
   - name: "topoList"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
@@ -132,7 +138,23 @@ deviceResources:
       valueType: "Object"    
       readWrite: "R"        
       units: ""            
-      defaultValue: "{}"     
+      defaultValue: "{}"  
+  - name: "upgradeStatus"
+    isHidden: false
+    description: "固件升级状态"
+    properties:
+      valueType: "String"
+      readWrite: "R"
+      units: ""
+      defaultValue: "空闲"  
+  - name: "hBeat"
+    isHidden: true
+    description: "心跳通道"
+    properties:
+      valueType: "Uint16"  
+      readWrite: "R" 
+      units: ""
+      defaultValue: "0"  
 deviceCommands:
   -
     name: "ResSinkNode"

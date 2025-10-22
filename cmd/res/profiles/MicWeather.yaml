@@ -94,37 +94,21 @@ deviceResources:
       units: "s"
       defaultValue: "60"
   - name: "AsyncReporting"
-    isHidden: false
+    isHidden: true
     description: "资源上传"
     properties:
       valueType: "Uint16"  
       readWrite: "R"
       units: "s"
       defaultValue: "0"
-  - name: "reset_ctl"               
-    isHidden: true                   
-    description: "复位设置响应"
-    properties:
-      valueType: "String"            
-      readWrite: "R"                 
-      units: ""                      
-      defaultValue: "" 
-  - name: "timestamp"               
-    isHidden: true                   
-    description: "时间查询响应"
-    properties:
-      valueType: "String"            
-      readWrite: "R"                 
-      units: ""                      
-      defaultValue: "" 
-  - name: "AsyncReport"
+  - name: "hBeat"
     isHidden: true
-    description: "异步上传通道名"
+    description: "心跳通道"
     properties:
       valueType: "Uint16"  
-      readWrite: "R"
-      units: "s"
-      defaultValue: "0"
+      readWrite: "R" 
+      units: ""
+      defaultValue: "0" 
 deviceCommands:
   -
     name: "ResMicWeather"

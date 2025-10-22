@@ -118,7 +118,7 @@ func common_para_response(data []byte, frameCtl Frame) error {
 		if info, ok := LookupParamInfo(paramType); ok {
 			val, err := info.Parse(valBytes)
 			if err != nil {
-				log.Printf("❌ 参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
+				log.Printf(" 参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
 			} else {
 				// 更新
 				SetDeviceValue(deviceName, info.Name, val)
@@ -143,14 +143,10 @@ func timestamp_response(data []byte, frameCtl Frame) error {
 	if !hasDevice {
 		log.Printf("未知 SensorID=%s，跳过本帧", frameCtl.SensorID)
 	}
-	timestamp_ctl := "timestamp"
-	log.Printf("data[0] = 0x%02X", data[0])
+	log.Printf("汇聚网关时间 = 0x%02X", data[0])
 	secs := binary.LittleEndian.Uint32(data[0:4])
 	t := time.Unix(int64(secs), 0)
-	log.Printf("世纪秒=%d 时间=%s", secs, t.Format("2006-01-02 15:04:05"))
-
-	strVal := strconv.Itoa(int(data[0]))
-	SetDeviceValue(deviceName, timestamp_ctl, strVal)
+	SetDeviceValue(deviceName, "timestampStr", t.Format("2006-01-02 15:04:05")) // 字符串
 	return nil
 }
 

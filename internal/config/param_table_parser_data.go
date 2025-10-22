@@ -103,8 +103,10 @@ var paramMap = map[ParamKey]ParamInfo{
 	// 6 母线电压采集相位
 	{0b010, 0b00000000110}: {"BusVoltageSamplingPhase", "°", 4, "float32", parseFloat32},
 	//变压器铁芯电流传感器
-	// 27 变压器铁芯/夹件接地电流
-	{0b010, 0b00000011011}: {"TransformerCoreClipGroundingCurrent", "A", 4, "float32", parseFloat32},
+	// 铁芯接地电流
+	{0b010, 0b00000011011}: {"CGAmp", "A", 4, "float32", parseFloat32},
+	// 夹件接地电流
+	{0b010, 0b0000100011}: {"ClpGAmp", "A", 4, "float32", parseFloat32},
 	// 28 变压器铁芯/夹件接地电流频谱
 	{0b010, 0b00000011100}: {"TransformerCoreClipGroundingCurrentSpectrum", "A", -1, "uint16[]", parseUint16Array},
 	//套管等容性设备传感器
