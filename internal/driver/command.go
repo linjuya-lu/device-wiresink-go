@@ -18,10 +18,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
-	"github.com/linjuya-lu/device-wiresink-go/internal/frameparser"
-	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
-	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/frameparser"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/mqttclient"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/relay"
 )
 
 type UpgradeProgress struct {

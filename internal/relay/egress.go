@@ -8,7 +8,7 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/mqttclient"
 )
 
 func SendFrame(srcAddr string, payload []byte) {

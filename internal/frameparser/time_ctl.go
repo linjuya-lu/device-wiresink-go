@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/relay"
 )
 
 const packetTypeControl = 0x04

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 )
 
 func startHealthCheckLoop() {

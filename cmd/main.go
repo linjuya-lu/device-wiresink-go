@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/edgexfoundry/device-sdk-go/v4/pkg/startup"
-	"github.com/linjuya-lu/device-wiresink-go/internal/driver"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/driver"
 )
 
 const (

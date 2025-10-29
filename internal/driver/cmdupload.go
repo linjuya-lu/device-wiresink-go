@@ -5,7 +5,7 @@ import (
 
 	dsModels "github.com/edgexfoundry/device-sdk-go/v4/pkg/models"
 	"github.com/edgexfoundry/go-mod-core-contracts/v4/common"
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 )
 
 func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]interface{}) {

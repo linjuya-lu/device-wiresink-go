@@ -96,7 +96,6 @@ func NewDeviceService(serviceKey string, serviceVersion string, driver interface
 	}
 
 	service.config = &config.ConfigurationStruct{}
-	fmt.Print("11111111111111")
 	return interfaces.DeviceServiceSDK(&service), nil
 }
 

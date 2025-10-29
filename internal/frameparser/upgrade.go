@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 )
 
 // ===== 协议常量 =====

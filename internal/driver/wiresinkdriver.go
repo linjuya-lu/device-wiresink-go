@@ -15,9 +15,9 @@ import (
 	"github.com/edgexfoundry/go-mod-core-contracts/v4/clients/logger"
 	"github.com/edgexfoundry/go-mod-core-contracts/v4/common"
 	"github.com/edgexfoundry/go-mod-core-contracts/v4/models"
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
-	"github.com/linjuya-lu/device-wiresink-go/internal/frameparser"
-	"github.com/linjuya-lu/device-wiresink-go/internal/mqttclient"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/frameparser"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/mqttclient"
 )
 
 type WireSinkDriver struct {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
-	"github.com/linjuya-lu/device-wiresink-go/internal/relay"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/relay"
 )
 
 // deviceName: 设备名

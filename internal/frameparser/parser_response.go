@@ -3,7 +3,7 @@ package frameparser
 import (
 	"log"
 
-	"github.com/linjuya-lu/device-wiresink-go/internal/config"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 )
 
 // 解析控制帧
