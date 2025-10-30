@@ -115,12 +115,12 @@ func parseWaterLevel(frame []byte, deviceName string, cb CallbackFunc) error {
 		if info, ok := config.LookupParamInfo(paramTypeAdj); ok {
 			val, err := info.Parse(valBytes)
 			if err != nil {
-				log.Printf("参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
+				log.Printf("参数 %s.%s 解析失败: %v", deviceName, "info.Name", err)
 			} else {
 				if val != nil {
-					config.SetDeviceValue(deviceName, info.Name, val)
-					resourceValues[info.Name] = val
-					log.Printf("写入值 %s.%s = %v %s", deviceName, info.Name, val, info.Unit)
+					config.SetDeviceValue(deviceName, "info.Name", val)
+					resourceValues["info.Name"] = val
+					log.Printf("写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Unit")
 				}
 			}
 		} else {
@@ -231,12 +231,12 @@ func parseTempHumidity(frame []byte, deviceName string, cb CallbackFunc) error {
 		if info, ok := config.LookupParamInfo(paramTypeAdj); ok {
 			val, err := info.Parse(valBytes)
 			if err != nil {
-				log.Printf("参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
+				log.Printf("参数 %s.%s 解析失败: %v", deviceName, "info.Name", err)
 			} else {
 				if val != nil {
-					config.SetDeviceValue(deviceName, info.Name, val)
-					resourceValues[info.Name] = val
-					log.Printf(" 写入值 %s.%s = %v %s", deviceName, info.Name, val, info.Unit)
+					config.SetDeviceValue(deviceName, "info.Name", val)
+					resourceValues["info.Name"] = val
+					log.Printf(" 写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Name")
 				}
 			}
 		} else {
@@ -392,13 +392,13 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				if info, ok := config.LookupParamInfo(paramType); ok {
 					val, err := info.Parse(valBytes)
 					if err != nil {
-						log.Printf("参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
+						log.Printf("参数 %s.%s 解析失败: %v", deviceName, "info.Name", err)
 					} else {
 						// 写入运行时值表
 						if val != nil {
-							config.SetDeviceValue(deviceName, info.Name, val)
-							resourceValues[info.Name] = val
-							log.Printf("写入值 %s.%s = %v %s", deviceName, info.Name, val, info.Unit)
+							config.SetDeviceValue(deviceName, "info.Name", val)
+							resourceValues["info.Name"] = val
+							log.Printf("写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Name")
 						}
 					}
 				} else {
@@ -449,8 +449,7 @@ func SendDataStatus(sensorKey string, packetType byte, dataStatus byte, dataLen 
 	return nil
 }
 
-// 写入时间戳（纳秒）
 func onDataReceived(deviceName string) {
 	ts := time.Now().UnixNano()
-	config.SetDeviceValue(deviceName, "LastDataTs", ts)
+	config.UpdateLastDataTs(deviceName, ts)
 }

@@ -107,7 +107,7 @@ func (d *WireSinkDriver) StartAsyncReporter() {
 				values := map[string]interface{}{
 					"heatbeat": stateVal,
 				}
-				d.AsyncReporting(deviceName, "Heartbeat", values)
+				d.AsyncReporting(deviceName, "heatbeat", values)
 			}
 		}
 	}()

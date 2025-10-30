@@ -17,6 +17,10 @@ var (
 	//配置文件目录
 	DevicesYAML = "../cmd/res/devices/devices.yaml"
 	ProfilesDir = "../cmd/res/profiles"
+
+	mu sync.RWMutex
+	// 每个设备的最新数据时间戳
+	LastDataTsMap = make(map[string]int64)
 )
 
 // 路由表
@@ -76,4 +80,20 @@ func GetAck() int {
 	Mu3.Lock()
 	defer Mu3.Unlock()
 	return AckReceived
+}
+
+// -----------------------------------------------心跳处理-------------------------------------------------------------------
+// 更新时间戳
+func UpdateLastDataTs(dev string, ts int64) {
+	mu.Lock()
+	LastDataTsMap[dev] = ts
+	mu.Unlock()
+}
+
+// 获取时间戳
+func GetLastDataTs(dev string) (int64, bool) {
+	mu.RLock()
+	ts, ok := LastDataTsMap[dev]
+	mu.RUnlock()
+	return ts, ok
 }

@@ -13,6 +13,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00000000001"
   - name: "WindDir10mAvg"                
     isHidden: true                   
     description: "平均风向"
@@ -21,6 +26,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00000000010"
   - name: "WindSpdMax"                
     isHidden: true                   
     description: "最大风速"
@@ -29,6 +39,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00000000011"
   - name: "TempAmbient"                
     isHidden: true                   
     description: "环境温度"
@@ -37,6 +52,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00000110"
   - name: "HumiAmbient"                
     isHidden: true                   
     description: "环境湿度"
@@ -45,6 +65,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00000111"
   - name: "Pressure"                
     isHidden: true                  
     description: "大气气压"
@@ -52,7 +77,12 @@ deviceResources:
       valueType: "Float32"            
       readWrite: "R"                 
       units: ""                      
-      defaultValue: "0"   
+      defaultValue: "0" 
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00001000"  
   - name: "Rain10m"                
     isHidden: true                   
     description: "雨量"
@@ -61,6 +91,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00001001"  
   - name: "SolarRad"                
     isHidden: true                   
     description: "光照强度"
@@ -69,14 +104,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-  - name: "eid"               
-    isHidden: true                   
-    description: "设备标识"
-    properties:
-      valueType: "String"            
-      readWrite: "R"                 
-      units: ""                      
-      defaultValue: "238A08411011"    
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00001011"  
   - name: "BatVolt"                
     isHidden: true                   
     description: "工作电压"
@@ -85,6 +117,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"    
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011110"
   - name: "ElecCurr"                
     isHidden: true                   
     description: "工作电流"
@@ -92,7 +129,12 @@ deviceResources:
       valueType: "Float32"            
       readWrite: "R"                 
       units: ""                      
-      defaultValue: "0"    
+      defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000000100" 
   - name: "Temp"                
     isHidden: true                   
     description: "工作温度"
@@ -101,14 +143,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-  - name: "LastDataTs"                       # 上次收到数据的时间戳
-    isHidden: true
-    description: "最新时间戳"
-    properties:
-      valueType: "Int64"                     
-      readWrite: "R"                                
-      units: "ns"
-      defaultValue: "0"
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000000101"
   - name: "heatbeat"                               
     isHidden: true
     description: "传感器运行状态"              # 0=正常,1=故障
@@ -117,6 +156,11 @@ deviceResources:
       readWrite: "R"
       units: "code"
       defaultValue: "0"
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011111"
   - name: "period"
     isHidden: true
     description: "上报周期"               
@@ -211,14 +255,6 @@ deviceResources:
       readWrite: "R"
       units: ""
       defaultValue: "空闲"   
-  - name: "Heartbeat"
-    isHidden: true
-    description: "心跳通道"
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: ""
-      defaultValue: "0"
 deviceCommands:
   -
     name: "ResSinkNode"
@@ -236,7 +272,6 @@ deviceCommands:
       - { deviceResource: "BatVolt", defaultValue: "0" }
       - { deviceResource: "ElecCurr", defaultValue: "0" }
       - { deviceResource: "Temp", defaultValue: "0" }
-      - { deviceResource: "LastDataTs", defaultValue: "0" }
       - { deviceResource: "heatbeat", defaultValue: "0" }
 
 

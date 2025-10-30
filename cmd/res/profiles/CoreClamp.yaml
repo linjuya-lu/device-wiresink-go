@@ -5,14 +5,6 @@ labels: ["铁芯夹件", "铁芯接地电流与夹件电流监测设备", "铁�
 description: "铁芯接地电流与夹件电流监测设备"
 
 deviceResources:
-  - name: "eid"               
-    isHidden: true                   
-    description: "设备标识"
-    properties:
-      valueType: "String"            
-      readWrite: "R"                 
-      units: ""                      
-      defaultValue: "238A08262319"    
   - name: "ClpGAmp"
     isHidden: true   
     description: "铁芯接地电流"
@@ -21,6 +13,11 @@ deviceResources:
       readWrite: "R"
       units: "A"
       defaultValue: "0" 
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "10"
+      paramType: "100011"
   - name: "CGAmp"
     isHidden: true  
     description: "夹件接地电流"
@@ -29,6 +26,11 @@ deviceResources:
       readWrite: "R"
       units: "A"
       defaultValue: "0" 
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "010"
+      paramType: "00000011011"
   - name: "BatVolt"                
     isHidden: true                   
     description: "工作电压"
@@ -37,6 +39,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0" 
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011110"
   - name: "ElecCurr"                
     isHidden: true                   
     description: "工作电流"
@@ -45,6 +52,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"    
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000000100"
   - name: "Temp"                
     isHidden: true                   
     description: "工作温度"
@@ -53,6 +65,11 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000000101"
   - name: "heatbeat"
     isHidden: true
     description: "工作状态"
@@ -61,14 +78,11 @@ deviceResources:
       readWrite: "R"
       units: "code"
       defaultValue: "0"
-  - name: "Heartbeat"
-    isHidden: true
-    description: "心跳通道"
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: ""
-      defaultValue: "0"
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011111"
   - name: "period"
     isHidden: true
     description: "上报周期"
@@ -77,14 +91,6 @@ deviceResources:
       readWrite: "R"
       units: "s"
       defaultValue: "1200"
-  - name: "LastDataTs"                       # 最新时间戳(Unix 纳秒）
-    isHidden: true
-    description: "最新时间戳"
-    properties:
-      valueType: "Int64"                            # 64 位整数，纳秒级
-      readWrite: "R"                                
-      units: "ns"
-      defaultValue: "0"
   - name: "AsyncData"
     isHidden: true
     description: "资源上传通道"

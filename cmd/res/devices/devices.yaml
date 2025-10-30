@@ -5,25 +5,29 @@ deviceList:
     labels: ["汇聚网关01", "汇聚节点01"]
     protocols:
       custom:
-        type: "MQTT"
+        type: "国网组网"
+        eid: "238A08411011"
   - name: "TempHum01"
     profileName: "TempHum"
     description: "温湿度传感器"
     labels: ["友讯达温湿度传感器01", "温湿度传感器01"]
     protocols:
       custom:
-        type: "LoRa"
+        type: "国网组网"
+        eid: "238A0821BF34"
   - name: "WaterLvl01"
     profileName: "WaterLvl"
     description: "水位传感器"
     labels: ["友讯达水位传感器01", "水位传感器01"]
     protocols:
       custom:
-        type: "LoRa"
+        type: "国网组网"
+        eid: "238A0821BEF2"
   - name: "CoreClamp01"
     profileName: "CoreClamp"
     description: "铁芯夹件传感器"
     labels: ["铁芯夹件传感器01", "铁芯夹件01"]
     protocols:
       custom:
-        type: "LoRa"
+        type: "国网组网"
+        eid: "238A08262319"

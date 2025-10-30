@@ -13,6 +13,11 @@ deviceResources:
       readWrite: "R"
       units: "℃"
       defaultValue: "0"
+      tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000000101"
   - name: "HumiAmbient"
     isHidden: true
     description: "湿度值"
@@ -21,6 +26,11 @@ deviceResources:
       readWrite: "R"
       units: "%RH"
       defaultValue: "0"
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "001"
+      paramType: "00000111"
   - name: "BatVolt"
     isHidden: true
     description: "供电电压"
@@ -29,6 +39,11 @@ deviceResources:
       readWrite: "R"
       units: "V"
       defaultValue: "0"
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011110"
   - name: "BatteryRemaining"
     isHidden: true
     description: "电池电量"
@@ -37,6 +52,11 @@ deviceResources:
       readWrite: "R"
       units: "%"
       defaultValue: "0"
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011101"
   - name: "heatbeat"
     isHidden: true
     description: "传感器运行状态"
@@ -45,14 +65,11 @@ deviceResources:
       readWrite: "R"
       units: "code"
       defaultValue: "0"
-  - name: "eid"
-    isHidden: true                    
-    description: "设备标识"
-    properties:
-      valueType: "String"            
-      readWrite: "R"                 
-      units: ""                      
-      defaultValue: "238A0821BF34"               
+    tags:
+      offset: "0"
+      scale: "1"
+      paramFeatures: "000"
+      paramType: "00000011111"           
   - name: "AsyncData"
     isHidden: true
     description: "资源上传通道"
@@ -60,22 +77,6 @@ deviceResources:
       valueType: "Uint16"  
       readWrite: "R"
       units: ""
-      defaultValue: "0"
-  - name: "Heartbeat"
-    isHidden: true
-    description: "心跳通道"
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: ""
-      defaultValue: "0"
-  - name: "LastDataTs"                       # 最新时间戳(Unix 纳秒）
-    isHidden: true
-    description: "最新时间戳"
-    properties:
-      valueType: "Int64"                            # 64 位整数，纳秒级
-      readWrite: "R"                                
-      units: "ns"
       defaultValue: "0"
   - name: "period"
     isHidden: true

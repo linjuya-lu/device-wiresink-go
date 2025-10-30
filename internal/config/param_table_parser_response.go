@@ -118,13 +118,13 @@ func common_para_response(data []byte, frameCtl Frame) error {
 		if info, ok := LookupParamInfo(paramType); ok {
 			val, err := info.Parse(valBytes)
 			if err != nil {
-				log.Printf(" 参数 %s.%s 解析失败: %v", deviceName, info.Name, err)
+				log.Printf(" 参数 %s.%s 解析失败: %v", deviceName, "info.Name", err)
 			} else {
 				// 更新
-				SetDeviceValue(deviceName, info.Name, val)
-				Resources1[info.Name] = val
+				SetDeviceValue(deviceName, "info.Name", val)
+				Resources1["info.Name"] = val
 
-				log.Printf("✅ 写入值 %s.%s = %v %s", deviceName, info.Name, val, info.Unit)
+				log.Printf("✅ 写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Unit")
 			}
 		} else {
 			log.Printf("未找到参数类型信息 type=0x%X", paramType)
