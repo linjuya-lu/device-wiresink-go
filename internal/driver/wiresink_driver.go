@@ -63,7 +63,7 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 }
 
 func (d *WireSinkDriver) Start() error {
-	if err := config.InitDeviceResources(config.DevicesYAML, config.ProfilesDir); err != nil {
+	if err := InitDeviceValues(d.sdk); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
 

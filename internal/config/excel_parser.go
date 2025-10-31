@@ -127,15 +127,14 @@ func LoadParamMapFromExcel(excelPath string) error {
 	return nil
 }
 
-// -------------------- 小工具函数 --------------------
+// -------------------- 工具函数 --------------------
 
-// "000" -> 0, "011" -> 3, ...
+// 字符串转整数
 func parseBinToUint8(s string) (uint8, error) {
 	v, err := strconv.ParseUint(strings.TrimSpace(s), 2, 8)
 	return uint8(v), err
 }
 
-// "1" -> 1, "100001" -> 33, ...
 func parseBinToUint16(s string) (uint16, error) {
 	v, err := strconv.ParseUint(strings.TrimSpace(s), 2, 16)
 	return uint16(v), err

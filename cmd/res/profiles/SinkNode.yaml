@@ -10,12 +10,12 @@ deviceResources:
     description: "平均风速"
     properties:
       valueType: "Float32"            
-      readWrite: "R"                 
+      readWrite: "R"    
+      offset: 0
+      scale: 1             
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+    attributes:
       paramFeatures: "001"
       paramType: "00000000001"
   - name: "WindDir10mAvg"                
@@ -23,12 +23,12 @@ deviceResources:
     description: "平均风向"
     properties:
       valueType: "Int16"            
-      readWrite: "R"                 
+      readWrite: "R"    
+      offset: 0
+      scale: 1             
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+    attributes:
       paramFeatures: "001"
       paramType: "00000000010"
   - name: "WindSpdMax"                
@@ -39,9 +39,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "001"
       paramType: "00000000011"
   - name: "TempAmbient"                
@@ -52,9 +52,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "001"
       paramType: "00000110"
   - name: "HumiAmbient"                
@@ -62,12 +62,12 @@ deviceResources:
     description: "环境湿度"
     properties:
       valueType: "Uint16"            
-      readWrite: "R"                 
+      readWrite: "R"      
+      offset: 0
+      scale: 1         
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+    attributes:
       paramFeatures: "001"
       paramType: "00000111"
   - name: "Pressure"                
@@ -78,9 +78,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0" 
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "001"
       paramType: "00001000"  
   - name: "Rain10m"                
@@ -91,9 +91,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "001"
       paramType: "00001001"  
   - name: "SolarRad"                
@@ -104,9 +104,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "001"
       paramType: "00001011"  
   - name: "BatVolt"                
@@ -116,10 +116,10 @@ deviceResources:
       valueType: "Float32"            
       readWrite: "R"                 
       units: ""                      
-      defaultValue: "0"    
-    tags:
-      offset: "0"
-      scale: "1"
+      defaultValue: "0"  
+      offset: 0
+      scale: 1  
+    attributes:
       paramFeatures: "000"
       paramType: "00000011110"
   - name: "ElecCurr"                
@@ -130,9 +130,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000000100" 
   - name: "Temp"                
@@ -143,9 +143,9 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "0"   
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000000101"
   - name: "heatbeat"                               
@@ -156,27 +156,11 @@ deviceResources:
       readWrite: "R"
       units: "code"
       defaultValue: "0"
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000011111"
-  - name: "period"
-    isHidden: true
-    description: "上报周期"               
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: "s"
-      defaultValue: "1200"
-  - name: "AsyncData"
-    isHidden: true
-    description: "资源上传通道"
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: ""
-      defaultValue: "0"
   - name: "timestamp"               
     isHidden: true                   
     description: "时间查询响应"
@@ -257,7 +241,7 @@ deviceResources:
       defaultValue: "空闲"   
 deviceCommands:
   -
-    name: "ResSinkNode"
+    name: "AsyncData"
     readWrite: "R"
     isHidden: false
     resourceOperations:

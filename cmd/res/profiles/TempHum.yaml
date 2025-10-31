@@ -13,9 +13,9 @@ deviceResources:
       readWrite: "R"
       units: "℃"
       defaultValue: "0"
-      tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000000101"
   - name: "HumiAmbient"
@@ -26,9 +26,9 @@ deviceResources:
       readWrite: "R"
       units: "%RH"
       defaultValue: "0"
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "001"
       paramType: "00000111"
   - name: "BatVolt"
@@ -39,9 +39,9 @@ deviceResources:
       readWrite: "R"
       units: "V"
       defaultValue: "0"
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000011110"
   - name: "BatteryRemaining"
@@ -52,9 +52,9 @@ deviceResources:
       readWrite: "R"
       units: "%"
       defaultValue: "0"
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000011101"
   - name: "heatbeat"
@@ -65,30 +65,14 @@ deviceResources:
       readWrite: "R"
       units: "code"
       defaultValue: "0"
-    tags:
-      offset: "0"
-      scale: "1"
+      offset: 0
+      scale: 1
+    attributes:
       paramFeatures: "000"
       paramType: "00000011111"           
-  - name: "AsyncData"
-    isHidden: true
-    description: "资源上传通道"
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: ""
-      defaultValue: "0"
-  - name: "period"
-    isHidden: true
-    description: "上报周期"
-    properties:
-      valueType: "Uint16"  
-      readWrite: "R"
-      units: "s"
-      defaultValue: "1200"
 deviceCommands:
   -
-    name: "TempHum"
+    name: "AsyncData"
     readWrite: "R"
     isHidden: false
     resourceOperations:
