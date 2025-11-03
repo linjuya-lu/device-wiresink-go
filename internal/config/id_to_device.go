@@ -79,3 +79,17 @@ func UpdateSensorMapping() {
 		SensorIDToDeviceName[eid] = deviceName
 	}
 }
+
+// 删除设备ID映射
+func DeleteSensorIDMappingsByDevice(deviceName string) error {
+	toDelete := make([]string, 0)
+	for sensorID, mappedDeviceName := range SensorIDToDeviceName {
+		if mappedDeviceName == deviceName {
+			toDelete = append(toDelete, sensorID)
+		}
+	}
+	for _, sensorID := range toDelete {
+		delete(SensorIDToDeviceName, sensorID)
+	}
+	return nil
+}

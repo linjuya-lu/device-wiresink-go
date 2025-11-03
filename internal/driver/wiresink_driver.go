@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"sync"
@@ -59,6 +60,15 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	if d.upgrading == nil {
 		d.upgrading = make(map[string]context.CancelFunc)
 	}
+	if err := d.sdk.AddCustomRoute(
+		"/custom/load-param-map",
+		interfaces.Unauthenticated,
+		d.handleLoadParamMap,
+		http.MethodPost,
+	); err != nil {
+		return fmt.Errorf("register route failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -220,7 +230,7 @@ func (d *WireSinkDriver) Stop(force bool) error {
 }
 
 func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
-	d.lc.Debugf("新设备已添加: %s", deviceName)
+	d.lc.Debugf("添加设备: %s", deviceName)
 
 	dev, err := d.sdk.GetDeviceByName(deviceName)
 	if err != nil {
@@ -241,13 +251,13 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
 			return fmt.Errorf("初始化设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
-		d.lc.Debugf("已将设备 %s 的资源 %s 初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		d.lc.Debugf("已将设备 %s 的资源 %s 初始化: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
 	}
 	return nil
 }
 
 func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
-	d.lc.Debugf("Device %s is updated", deviceName)
+	d.lc.Debugf("更新设备 %s", deviceName)
 
 	dev, err := d.sdk.GetDeviceByName(deviceName)
 	if err != nil {
@@ -265,26 +275,26 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
 			return fmt.Errorf("更新设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
-		d.lc.Debugf("已将设备 %s 的资源 %s 重新初始化为默认值: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		d.lc.Debugf("已将设备 %s 的资源 %s 初始化: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
 	}
 
-	d.lc.Infof("已刷新设备 %s 的资源值为最新默认配置", deviceName)
+	d.lc.Infof("刷新设备 %s 的资源值", deviceName)
 	return nil
 }
 
 func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]models.ProtocolProperties) error {
-	d.lc.Debugf("Device %s is removed", deviceName)
+	d.lc.Debugf("移除设备： %s", deviceName)
 
 	if err := config.DeleteDeviceValues(deviceName); err != nil {
-		d.lc.Errorf("删除设备 %s 的运行时值失败: %v", deviceName, err)
-		return fmt.Errorf("删除设备 %s 的运行时值失败: %w", deviceName, err)
+		d.lc.Errorf("删除设备资源错误 %s : %v", deviceName, err)
+		return fmt.Errorf(" %s删除错误 : %w", deviceName, err)
 	}
 
 	if err := config.DeleteSensorIDMappingsByDevice(deviceName); err != nil {
-		d.lc.Errorf("删除设备 %s 的传感器映射失败: %v", deviceName, err)
-		return fmt.Errorf("删除设备 %s 的传感器映射失败: %w", deviceName, err)
+		d.lc.Errorf("删除设备映射错误 %s : %v", deviceName, err)
+		return fmt.Errorf("删除错误 %s : %w", deviceName, err)
 	}
-	d.lc.Infof("已移除设备 %s 的所有运行时数据和映射", deviceName)
+	d.lc.Infof("成功移除 %s ", deviceName)
 	return nil
 }
 
