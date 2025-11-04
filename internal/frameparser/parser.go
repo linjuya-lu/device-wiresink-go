@@ -15,7 +15,7 @@ import (
 // deviceName: 设备名
 // sourceName: 资源名
 // resourceNames: 数据值列表
-type CallbackFunc func(deviceName, sourceName string, values map[string]interface{})
+type CallbackFunc func(deviceName, sourceName string, values map[string]any)
 
 // LORA协议解析
 func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
@@ -98,7 +98,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			}
 			idx := 7
 			parsed := 0
-			resourceValues := make(map[string]interface{})
+			resourceValues := make(map[string]any)
 			for parsed < dataCount {
 				// 参数头2字节
 				if idx+2 > len(frame)-2 {

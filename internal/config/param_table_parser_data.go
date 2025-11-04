@@ -25,7 +25,7 @@ var paramMap = map[ParamKey]ParamInfo{
 func LookupParamInfo(paramType uint16) (ParamInfo, bool) {
 	feature := byte((paramType >> 11) & 0x07)
 	code := paramType & 0x7FF
-	fmt.Printf("🔍 TypeCode=0x%04X → Feature=%03b (0x%X), Code=%011b (0x%X)\n", paramType, feature, feature, code, code)
+	fmt.Printf("TypeCode=0x%04X → Feature=%03b (0x%X), Code=%011b (0x%X)\n", paramType, feature, feature, code, code)
 
 	key := ParamKey{feature, code}
 	info, ok := paramMap[key]
@@ -102,7 +102,7 @@ func parseInt16(data []byte) (any, error) {
 func parseTopo(data []byte) (any, error) {
 	n := len(data)
 
-	// 粗判“像一个节点”的起点：6字节EID + , + state + , + type + , + 6字节parent
+	// 粗判6字节EID + , + state + , + type + , + 6字节parent
 	looksLikeNode := func(i int) bool {
 		if i+16 > n {
 			return false
@@ -112,7 +112,7 @@ func parseTopo(data []byte) (any, error) {
 			data[i+10] == 0x2C
 	}
 
-	// 6字节转12位大写十六进制
+	// 字节转字符串
 	toHex12 := func(b []byte) string {
 		const hexdigits = "0123456789ABCDEF"
 		dst := make([]byte, 12)
@@ -124,16 +124,16 @@ func parseTopo(data []byte) (any, error) {
 		return string(dst)
 	}
 
-	// 找到第一条节点的起点
+	// 找起点
 	i := 0
 	for i < n && !looksLikeNode(i) {
 		i++
 	}
 	if i >= n {
-		return nil, fmt.Errorf("拓扑解析 未找到节点起点，数据不符合约定")
+		return nil, fmt.Errorf("未找到节点起点，数拓扑不符合约定")
 	}
 
-	// 解析当前这一帧的所有节点
+	// 解析所有节点
 	var entries []NodeTopology
 	for i < n {
 		if !looksLikeNode(i) {
@@ -147,6 +147,7 @@ func parseTopo(data []byte) (any, error) {
 		// ',' state ','
 		if i >= n || data[i] != 0x2C {
 			return nil, fmt.Errorf("节点缺少逗号分隔(1)")
+			//			TODO:EID STATE关系映射
 		}
 		i++
 		if i >= n {
@@ -199,22 +200,20 @@ func parseTopo(data []byte) (any, error) {
 	now := time.Now()
 	topoMu.Lock()
 
-	// 空闲超时：认为开始新一轮快照，自动清空
+	// 空闲超时：开始新一轮，自动清空
 	if topoIdleTTL > 0 && !topoLastAt.IsZero() && now.Sub(topoLastAt) > topoIdleTTL {
 		TopoList = TopoList[:0]
 		topoIndex = make(map[string]int)
 	}
 	topoLastAt = now
-
 	for _, e := range entries {
 		if idx, ok := topoIndex[e.EID]; ok {
-			TopoList[idx] = e // 更新已存在项
+			TopoList[idx] = e
 		} else {
 			topoIndex[e.EID] = len(TopoList)
 			TopoList = append(TopoList, e)
 		}
 	}
-
 	snapshot := append([]NodeTopology(nil), TopoList...)
 	topoMu.Unlock()
 

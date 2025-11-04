@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-// 通用传感器报文
+// LORA报文
 type Frame struct {
-	SensorID   string // 传感器 ID
+	SensorID   string // EID
 	DataLen    byte   // 参量个数
 	FragInd    byte   // 分片指示
 	PacketType byte   // 报文类型
@@ -32,10 +32,8 @@ func (f *Frame) Bytes() []byte {
 }
 
 type ResponseKey struct {
-	// 控制报文类型：低 7 位
-	CtrlType uint8
-	// 参数配置类型标识：1 bit，0/1
-	RequestSetFlag bool
+	CtrlType       uint8 // 控制报文类型：低 7 位
+	RequestSetFlag bool  // 参数配置类型标识：1 位
 }
 
 type ResponseHandle struct {
@@ -63,14 +61,14 @@ func LookupResponseHandle(head uint8) (ResponseHandle, bool) {
 }
 
 // ===================== 通用解析函数 =====================
-var Resources1 = make(map[string]interface{})
+var Resources1 = make(map[string]any)
 var ResourcesFlag bool = false
 
 // 通用参数查询/设置
 func common_para_response(data []byte, frameCtl Frame) error {
 	idx := 0
 	parsed := 0
-	Resources1 = make(map[string]interface{})
+	Resources1 = make(map[string]any)
 
 	ResourcesFlag = false
 	for parsed < int(frameCtl.DataLen) {
@@ -124,7 +122,7 @@ func common_para_response(data []byte, frameCtl Frame) error {
 				SetDeviceValue(deviceName, "info.Name", val)
 				Resources1["info.Name"] = val
 
-				log.Printf("✅ 写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Unit")
+				log.Printf("写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Unit")
 			}
 		} else {
 			log.Printf("未找到参数类型信息 type=0x%X", paramType)
@@ -193,6 +191,5 @@ func resetCommands(data []byte, frameCtl Frame) error {
 	// 发送命令
 	eidStr, _ := eidValue.(string)
 	RestCommandBuildFrame(eidStr, sensorID, 1, ts)
-
 	return nil
 }

@@ -6,21 +6,18 @@ import (
 )
 
 var (
-	UpgradeTCPPort uint32 = 12345 // TCP端口
+	UpgradeTCPPort uint32 = 12345                                      // TCP端口
+	WriteChan             = make(chan []byte, 100)                     // 写通道
+	EidStr                = "238A0841D828"                             // 模块EID
+	BrokerURL             = "tcp://172.16.19.91:1883"                  //MQTT代理
+	MqttTopicUp           = "edgex/service/request/device-wiresink/up" // 上行
+	MqttTopicDown         = "edgex/device/<svc>/uplink/event"          // 上行
 
-	WriteChan = make(chan []byte, 100) // 写通道
-
-	EidStr = "238A0841D828" // 模块EID
-
-	BrokerURL = "tcp://172.16.19.91:1883" //MQTT代理
-
-	//配置文件目录
 	DevicesYAML = "../cmd/res/devices/devices.yaml"
 	ProfilesDir = "../cmd/res/profiles"
 
-	mu sync.RWMutex
-	// 每个设备的最新数据时间戳
-	LastDataTsMap = make(map[string]int64)
+	mu            sync.RWMutex
+	LastDataTsMap = make(map[string]int64) // 设备数据时间戳
 )
 
 // 路由表
@@ -32,11 +29,11 @@ var (
 	topoIdleTTL = 600 * time.Second // 超过这个空闲视为新一轮
 )
 
-// 清空但保留底层容量
+// 清空
 func ClearTopo() (prev int) {
 	topoMu.Lock()
 	prev = len(TopoList)
-	TopoList = TopoList[:0] // 只清长度，保留容量
+	TopoList = TopoList[:0]
 	topoIndex = make(map[string]int)
 	topoLastAt = time.Time{} // 清掉时间戳
 	topoMu.Unlock()

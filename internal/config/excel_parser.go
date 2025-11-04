@@ -59,14 +59,12 @@ func LoadParamMapFromExcel(excelPath string) error {
 	if sheetName == "" {
 		return fmt.Errorf("excel has no sheets")
 	}
-
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
 		return fmt.Errorf("read rows failed: %w", err)
 	}
 
 	newParamMap := make(map[ParamKey]ParamInfo)
-
 	for i, row := range rows {
 		if i == 0 {
 			continue
@@ -74,60 +72,50 @@ func LoadParamMapFromExcel(excelPath string) error {
 		if len(row) == 0 {
 			continue
 		}
-
-		// 安全取列的函数，避免越界
+		// 取列函数
 		col := func(idx int) string {
 			if idx < len(row) {
 				return strings.TrimSpace(row[idx])
 			}
 			return ""
 		}
-
 		featureBits := col(2)
 		typeCodeBits := col(3)
 		dataTypeCN := col(5)
 		dataLenBytes := col(7)
-
-		// 行不完整跳过
 		if featureBits == "" || typeCodeBits == "" || dataTypeCN == "" || dataLenBytes == "" {
 			continue
 		}
 
-		// 找到解析函数
+		// 到解析函数
 		ti, ok := LookupTypeInfo(dataLenBytes, dataTypeCN)
 		if !ok {
-			// 暂时没支持的，就先跳过，不报错
+			fmt.Printf("没有对应数据的解析函数")
 			continue
 		}
 
-		// 把 "000" / "011" / "1" / "100001" 这些二进制字符串转成数字
+		// 字符串转数字
 		featureVal, err := parseBinToUint8(featureBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad featureBits %q: %w", i+1, featureBits, err)
 		}
-
 		typeCodeVal, err := parseBinToUint16(typeCodeBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad typeCodeBits %q: %w", i+1, typeCodeBits, err)
 		}
-
 		key := ParamKey{
 			FeatureBits: featureVal,  // 参量特征(3位二进制)
 			CodeBits:    typeCodeVal, // 参量类型编码(11位二进制)
 		}
-
 		newParamMap[key] = ParamInfo{
-			Parse: ti.Parse, // ← 用 ti.Parse，因为 TypeInfo 里字段名叫 Parse
+			Parse: ti.Parse,
 		}
-
 	}
 
-	// 覆盖全局paramMap
+	// 覆盖paramMap
 	paramMap = newParamMap
 	return nil
 }
-
-// -------------------- 工具函数 --------------------
 
 // 字符串转整数
 func parseBinToUint8(s string) (uint8, error) {

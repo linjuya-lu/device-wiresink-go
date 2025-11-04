@@ -58,7 +58,6 @@ func (d *WireSinkDriver) handleLoadParamMap(c echo.Context) error {
 		})
 	}
 
-	// 调用你现有的解析函数：internal/config.LoadParamMapFromExcel(excelPath string) error
 	if err := config.LoadParamMapFromExcel(xlsxPath); err != nil {
 		d.lc.Errorf("LoadParamMapFromExcel error: %v", err)
 		return c.JSON(http.StatusBadRequest, map[string]any{"ok": false, "error": err.Error(), "path": xlsxPath})

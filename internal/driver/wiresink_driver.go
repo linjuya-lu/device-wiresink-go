@@ -3,11 +3,13 @@ package driver
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -76,21 +78,16 @@ func (d *WireSinkDriver) Start() error {
 	if err := InitDeviceValues(d.sdk); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
+	config.UpdateSensorMapping()
 
 	// MQTT订阅
-	if err := mqttclient.SubscribeData(mqttclient.MqttClient, "edgex/service/request/device-wiresink/up", 0); err != nil {
+	if err := mqttclient.SubscribeData(mqttclient.MqttClient, config.MqttTopicUp, 0); err != nil {
 		return err
 	}
 
-	// 业务数据解析协程
-	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting)
-
-	// EID、设备名映射
-	config.UpdateSensorMapping()
-
-	startHealthCheckLoop() // 健康检查
-	//心跳上传
-	d.StartAsyncReporter()
+	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting) // 业务数据解析协程
+	d.startHealthCheckLoop()                                            // 健康检查
+	d.StartAsyncReporter()                                              //心跳上传
 	d.lc.Infof("有线汇聚已启动......")
 	return nil
 }
@@ -213,12 +210,9 @@ func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[st
 	defer d.locker.Unlock()
 
 	d.lc.Debug("设备=%s, 请求数=%d", deviceName, len(reqs))
-
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
-
-		d.lc.Debug("常规命令 %d Resource=%s", i, resName)
-
+		d.lc.Debug("命令%d 写入%s", i, resName)
 	}
 	return nil
 }
@@ -231,19 +225,22 @@ func (d *WireSinkDriver) Stop(force bool) error {
 
 func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
 	d.lc.Debugf("添加设备: %s", deviceName)
-
+	//添加EID
+	if eid, ok := extractEID(protocols); ok {
+		config.AddMapping(eid, deviceName)
+	} else {
+		d.lc.Warnf("设备 %s 未提供 LoRa.eid", deviceName)
+	}
+	//初始资源
 	dev, err := d.sdk.GetDeviceByName(deviceName)
 	if err != nil {
 		return fmt.Errorf("获取设备 %s 失败: %w", deviceName, err)
 	}
-
 	profileName := dev.ProfileName
-
 	prof, err := d.sdk.GetProfileByName(profileName)
 	if err != nil {
 		return fmt.Errorf("获取设备配置文件 %s 失败: %w", profileName, err)
 	}
-
 	for _, dr := range prof.DeviceResources {
 		resName := dr.Name
 		defaultValue := dr.Properties.DefaultValue
@@ -258,7 +255,13 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 
 func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
 	d.lc.Debugf("更新设备 %s", deviceName)
-
+	//更新EID
+	if eid, ok := extractEID(protocols); ok {
+		config.UpdateMapping(eid, deviceName)
+	} else {
+		d.lc.Warnf("设备 %s 未提供 LoRa.eid", deviceName)
+	}
+	//更新资源
 	dev, err := d.sdk.GetDeviceByName(deviceName)
 	if err != nil {
 		return fmt.Errorf("获取设备 %s 失败: %w", deviceName, err)
@@ -284,7 +287,13 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 
 func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]models.ProtocolProperties) error {
 	d.lc.Debugf("移除设备： %s", deviceName)
-
+	//移除EID
+	if eid, ok := extractEID(protocols); ok {
+		config.DeleteMapping(eid)
+	} else {
+		d.lc.Warnf("设备 %s 未提供 LoRa.eid", deviceName)
+	}
+	//删除资源
 	if err := config.DeleteDeviceValues(deviceName); err != nil {
 		d.lc.Errorf("删除设备资源错误 %s : %v", deviceName, err)
 		return fmt.Errorf(" %s删除错误 : %w", deviceName, err)
@@ -298,10 +307,34 @@ func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]mo
 	return nil
 }
 
-func (d *WireSinkDriver) ValidateDevice(device models.Device) error {
-	d.lc.Debug("ValidateDevice 未实现")
+func (s *WireSinkDriver) ValidateDevice(device models.Device) error {
+	var lora models.ProtocolProperties
+	for k, v := range device.Protocols {
+		if strings.EqualFold(k, "LoRa") {
+			lora = v
+			break
+		}
+	}
+	if lora == nil {
+		return errors.New("协议字段未包含 'LoRa'")
+	}
+
+	raw, ok := lora["eid"]
+	if !ok {
+		return errors.New("未包含 'LoRa.eid'")
+	}
+	eid, ok := raw.(string)
+	if !ok {
+		return errors.New("LoRa.eid 不是字符串")
+	}
+	eid = strings.TrimSpace(eid)
+	if eid == "" {
+		return errors.New("LoRa.eid 为空")
+	}
+
 	return nil
 }
+
 func (d *WireSinkDriver) Discover() error {
 	return fmt.Errorf("Discover 未实现")
 }
@@ -533,4 +566,34 @@ func makeCV(name string, valueType string, val any) (*dsModels.CommandValue, err
 	}
 	cv.Origin = time.Now().UnixNano()
 	return cv, nil
+}
+
+// 提取 LoRa.eid
+func extractEID(protocols map[string]models.ProtocolProperties) (string, bool) {
+	// 找到 "lora"
+	var loraProps models.ProtocolProperties
+	for k, v := range protocols {
+		if strings.EqualFold(k, "lora") {
+			loraProps = v
+			break
+		}
+	}
+	if loraProps == nil {
+		return "", false
+	}
+
+	// 读出 eid
+	for _, key := range []string{"eid"} {
+		if val, ok := loraProps[key]; ok {
+			switch t := val.(type) {
+			case string:
+				if s := strings.TrimSpace(t); s != "" {
+					return s, true
+				}
+			default:
+				fmt.Printf("LoRa.eid 非字符串类型: %T\n", t)
+			}
+		}
+	}
+	return "", false
 }

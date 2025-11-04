@@ -8,13 +8,12 @@ import (
 )
 
 var (
-	Mu sync.RWMutex
-	//设备名称 → (资源名称 → 值)
-	ValuesMap = make(map[string]map[string]interface{})
+	Mu        sync.RWMutex
+	ValuesMap = make(map[string]map[string]any) //设备名称 → (资源名称 → 值)
 )
 
 // 默认值转化
-func ParseDefaultValue(valStr, vt string) interface{} {
+func ParseDefaultValue(valStr, vt string) any {
 	switch vt {
 	case "Float32":
 		if f, err := strconv.ParseFloat(valStr, 32); err == nil {
@@ -38,7 +37,7 @@ func ParseDefaultValue(valStr, vt string) interface{} {
 			return arr
 		}
 	case "Object":
-		var obj map[string]interface{}
+		var obj map[string]any
 		if err := json.Unmarshal([]byte(valStr), &obj); err == nil {
 			return obj
 		}
@@ -47,17 +46,17 @@ func ParseDefaultValue(valStr, vt string) interface{} {
 }
 
 // 写入资源
-func SetDeviceValue(deviceName, resourceName string, value interface{}) {
+func SetDeviceValue(deviceName, resourceName string, value any) {
 	Mu.Lock()
 	defer Mu.Unlock()
 	if _, ok := ValuesMap[deviceName]; !ok {
-		ValuesMap[deviceName] = make(map[string]interface{})
+		ValuesMap[deviceName] = make(map[string]any)
 	}
 	ValuesMap[deviceName][resourceName] = value
 }
 
 // 获取资源
-func GetDeviceValue(deviceName, resourceName string) (interface{}, bool) {
+func GetDeviceValue(deviceName, resourceName string) (any, bool) {
 	Mu.RLock()
 	defer Mu.RUnlock()
 	deviceValues, ok := ValuesMap[deviceName]
@@ -69,7 +68,7 @@ func GetDeviceValue(deviceName, resourceName string) (interface{}, bool) {
 }
 
 // 获取所有资源
-func GetDeviceValues(deviceName string) (map[string]interface{}, bool) {
+func GetDeviceValues(deviceName string) (map[string]any, bool) {
 	Mu.RLock()
 	defer Mu.RUnlock()
 	vals, ok := ValuesMap[deviceName]
@@ -77,7 +76,7 @@ func GetDeviceValues(deviceName string) (map[string]interface{}, bool) {
 		return nil, false
 	}
 
-	copyMap := make(map[string]interface{}, len(vals))
+	copyMap := make(map[string]any, len(vals))
 	for k, v := range vals {
 		copyMap[k] = v
 	}
@@ -89,7 +88,7 @@ func DeviceInit(deviceName, resourceName, defaultValue, valueType string) error 
 	Mu.Lock()
 	defer Mu.Unlock()
 	if _, exists := ValuesMap[deviceName]; !exists {
-		ValuesMap[deviceName] = make(map[string]interface{})
+		ValuesMap[deviceName] = make(map[string]any)
 	}
 	parsedValue := ParseDefaultValue(defaultValue, valueType)
 	ValuesMap[deviceName][resourceName] = parsedValue
@@ -106,4 +105,3 @@ func DeleteDeviceValues(deviceName string) error {
 	delete(ValuesMap, deviceName)
 	return nil
 }
-

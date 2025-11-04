@@ -27,7 +27,7 @@ func InitDeviceValues(sdk interfaces.DeviceServiceSDK) error {
 			return fmt.Errorf("获取 Profile %s 失败: %w", profName, err)
 		}
 
-		devValueMap := make(map[string]interface{}, len(prof.DeviceResources))
+		devValueMap := make(map[string]any, len(prof.DeviceResources))
 
 		for _, dr := range prof.DeviceResources {
 			defVal := dr.Properties.DefaultValue

@@ -42,13 +42,13 @@ func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
 
 // 外层
 type EdgexMessage struct {
-	ApiVersion    string      `json:"apiVersion"`
-	ReceivedTopic string      `json:"receivedTopic"`
-	CorrelationID string      `json:"correlationID"`
-	RequestID     string      `json:"requestID"`
-	ErrorCode     int         `json:"errorCode"`
-	Payload       interface{} `json:"payload"`
-	ContentType   string      `json:"contentType"`
+	ApiVersion    string `json:"apiVersion"`
+	ReceivedTopic string `json:"receivedTopic"`
+	CorrelationID string `json:"correlationID"`
+	RequestID     string `json:"requestID"`
+	ErrorCode     int    `json:"errorCode"`
+	Payload       any    `json:"payload"`
+	ContentType   string `json:"contentType"`
 }
 
 // 内层
@@ -68,7 +68,7 @@ func SubscribeData(cli mqtt.Client, topic string, qos byte) error {
 }
 
 // ---- 提取 payload 的原始 JSON 字节 ----
-func payloadBytes(p interface{}) ([]byte, error) {
+func payloadBytes(p any) ([]byte, error) {
 	switch v := p.(type) {
 	case nil:
 		return nil, errors.New("payload is nil")
@@ -78,7 +78,7 @@ func payloadBytes(p interface{}) ([]byte, error) {
 		return []byte(v), nil
 	case []byte:
 		return v, nil
-	case map[string]interface{}:
+	case map[string]any:
 		return json.Marshal(v)
 	default:
 		return json.Marshal(v)

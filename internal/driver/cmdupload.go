@@ -8,7 +8,7 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 )
 
-func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]interface{}) {
+func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, values map[string]any) {
 	if len(values) == 0 {
 		d.lc.Debugf("异步上传没有要上报的值")
 		return
@@ -69,14 +69,14 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 		deviceName, sourceName, len(cvs))
 }
 
-func snapshotValuesMap() map[string]map[string]interface{} {
-	snap := make(map[string]map[string]interface{}, len(config.ValuesMap))
+func snapshotValuesMap() map[string]map[string]any {
+	snap := make(map[string]map[string]any, len(config.ValuesMap))
 	config.Mu.RLock()
 	for dev, res := range config.ValuesMap {
 		if res == nil {
 			continue
 		}
-		cp := make(map[string]interface{}, len(res))
+		cp := make(map[string]any, len(res))
 		for k, v := range res {
 			cp[k] = v
 		}
@@ -104,7 +104,7 @@ func (d *WireSinkDriver) StartAsyncReporter() {
 				if !ok {
 					continue
 				}
-				values := map[string]interface{}{
+				values := map[string]any{
 					"heatbeat": stateVal,
 				}
 				d.AsyncReporting(deviceName, "heatbeat", values)

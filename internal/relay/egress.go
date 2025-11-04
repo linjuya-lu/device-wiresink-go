@@ -30,13 +30,13 @@ func SendFrame(srcAddr string, payload []byte) {
 }
 
 type EdgexMessage struct {
-	ApiVersion    string      `json:"apiVersion"`
-	ReceivedTopic string      `json:"receivedTopic,omitempty"`
-	CorrelationID string      `json:"correlationID"`
-	RequestID     string      `json:"requestID"`
-	ErrorCode     int         `json:"errorCode"`
-	Payload       interface{} `json:"payload"`
-	ContentType   string      `json:"contentType"`
+	ApiVersion    string `json:"apiVersion"`
+	ReceivedTopic string `json:"receivedTopic,omitempty"`
+	CorrelationID string `json:"correlationID"`
+	RequestID     string `json:"requestID"`
+	ErrorCode     int    `json:"errorCode"`
+	Payload       any    `json:"payload"`
+	ContentType   string `json:"contentType"`
 }
 
 type SinkPayload struct {

@@ -5,45 +5,45 @@ import (
 	"sync"
 )
 
-// 资源映射
+// EID映射
 var (
 	mu1                  sync.RWMutex
 	SensorIDToDeviceName = map[string]string{}
 )
 
-// 添加一条映射
+// 添加EID
 func AddMapping(sensorID, deviceName string) {
 	mu1.Lock()
 	defer mu1.Unlock()
 	SensorIDToDeviceName[sensorID] = deviceName
-	fmt.Printf("AddMapping Mapping added: %s -> %s\n", sensorID, deviceName)
+	fmt.Printf("添加EID: %s -> %s\n", sensorID, deviceName)
 }
 
-// 删除指定映射
+// 删除EID
 func DeleteMapping(sensorID string) error {
 	mu1.Lock()
 	defer mu1.Unlock()
 	if _, ok := SensorIDToDeviceName[sensorID]; !ok {
-		return fmt.Errorf("DeleteMapping no mapping found for SensorID %s", sensorID)
+		return fmt.Errorf("无EID %s", sensorID)
 	}
 	delete(SensorIDToDeviceName, sensorID)
-	fmt.Printf("DeleteMapping Mapping deleted: %s\n", sensorID)
+	fmt.Printf("删除EID: %s\n", sensorID)
 	return nil
 }
 
-// 更新指定映射
+// 更新EID
 func UpdateMapping(sensorID, newDeviceName string) error {
 	mu1.Lock()
 	defer mu1.Unlock()
 	if _, ok := SensorIDToDeviceName[sensorID]; !ok {
-		return fmt.Errorf("UpdateMapping no mapping found for SensorID %s", sensorID)
+		return fmt.Errorf("无EID %s", sensorID)
 	}
 	SensorIDToDeviceName[sensorID] = newDeviceName
-	fmt.Printf("UpdateMapping Mapping updated: %s -> %s\n", sensorID, newDeviceName)
+	fmt.Printf("更新EID: %s -> %s\n", sensorID, newDeviceName)
 	return nil
 }
 
-// 根据EID返回逻辑设备名
+// 取设备名
 func LookupDeviceName(sensorID string) (deviceName string, ok bool) {
 	mu1.RLock()
 	defer mu1.RUnlock()
@@ -51,12 +51,11 @@ func LookupDeviceName(sensorID string) (deviceName string, ok bool) {
 	return
 }
 
-// 资源值映射
+// EID映射初始化
 func UpdateSensorMapping() {
 	mu1.Lock()
 	defer mu1.Unlock()
 
-	// 清空旧映射
 	SensorIDToDeviceName = make(map[string]string)
 
 	for deviceName, resourceMap := range ValuesMap {
@@ -80,7 +79,7 @@ func UpdateSensorMapping() {
 	}
 }
 
-// 删除设备ID映射
+// 删除映射
 func DeleteSensorIDMappingsByDevice(deviceName string) error {
 	toDelete := make([]string, 0)
 	for sensorID, mappedDeviceName := range SensorIDToDeviceName {
