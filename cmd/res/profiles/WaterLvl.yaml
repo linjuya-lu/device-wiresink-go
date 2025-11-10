@@ -44,7 +44,7 @@ deviceResources:
     attributes:
       paramFeatures: "000"
       paramType: "00000011101"
-  - name: "heatbeat"
+  - name: "state"
     isHidden: true
     description: "传感器运行状态"
     properties:
@@ -66,5 +66,5 @@ deviceCommands:
       - { deviceResource: "WaterLevel", defaultValue: "0" }
       - { deviceResource: "BatVolt", defaultValue: "0" }
       - { deviceResource: "BatteryRemaining", defaultValue: "0" }
-      - { deviceResource: "heatbeat", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
       

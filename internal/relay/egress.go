@@ -8,15 +8,13 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 	"github.com/linjuya-lu/device-wiresink-go-arm/internal/mqttclient"
 )
 
 func SendFrame(srcAddr string, payload []byte) {
-	const topic = "edgex/server/response/device-wiresink/down"
 
 	hexStr := strings.ToUpper(hex.EncodeToString(payload))
-
-	// 对于很长的帧，连续HEX只打印前 256 字节做预览
 	const previewN = 256
 	if n := len(payload); n > previewN {
 		fmt.Printf("[tx] hex(preview %d/%dB)=%s...", previewN, n,
@@ -25,8 +23,8 @@ func SendFrame(srcAddr string, payload []byte) {
 		fmt.Printf("[tx] hex=%s", hexStr)
 	}
 
-	mqttclient.PublishSinkCommand(mqttclient.MqttClient, topic, srcAddr, hexStr)
-	fmt.Printf("已发布主题%s", topic)
+	mqttclient.PublishSinkCommand(mqttclient.MqttClient, config.MqttTopicDown, srcAddr, hexStr)
+	fmt.Printf("已发布主题%s", config.MqttTopicDown)
 }
 
 type EdgexMessage struct {

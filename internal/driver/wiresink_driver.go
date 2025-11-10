@@ -31,6 +31,8 @@ type WireSinkDriver struct {
 
 	upgMu     sync.Mutex //异步升级锁
 	upgrading map[string]context.CancelFunc
+
+	upgradeFiles map[string]string // deviceName -> firmware local path
 }
 
 var (
@@ -59,9 +61,27 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	}
 	mqttclient.MqttClient = client
 
+	return nil
+}
+
+func (d *WireSinkDriver) Start() error {
+	//后台升级
 	if d.upgrading == nil {
 		d.upgrading = make(map[string]context.CancelFunc)
 	}
+	// 每个设备的固件文件路径
+	if d.upgradeFiles == nil {
+		d.upgradeFiles = make(map[string]string)
+	}
+	if err := d.sdk.AddCustomRoute(
+		"/custom/firmware-upgrade",
+		interfaces.Unauthenticated,
+		d.handleFirmwareUpgrade,
+		http.MethodPost,
+	); err != nil {
+		return fmt.Errorf("register firmware upgrade route failed: %w", err)
+	}
+	//配置文件下发
 	if err := d.sdk.AddCustomRoute(
 		"/custom/load-param-map",
 		interfaces.Unauthenticated,
@@ -71,10 +91,6 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 		return fmt.Errorf("register route failed: %w", err)
 	}
 
-	return nil
-}
-
-func (d *WireSinkDriver) Start() error {
 	if err := InitDeviceValues(d.sdk); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
@@ -104,7 +120,11 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
 		// 请求路由
-		if resName == "resourceTopologyDiagram" {
+		if resName == "topo" {
+			config.ClearTopo()
+			if err := d.handleRouterParameterQuery(deviceName); err != nil {
+				return nil, err
+			}
 			topo := config.GetTopoList()
 			fmt.Printf("拓扑路由:%s", topo)
 			cv, cerr := dsModels.NewCommandValue(
@@ -119,7 +139,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			continue
 		}
 		// 时间查询
-		if resName == "cmdTimeParamQry" {
+		if resName == "timeQuery" {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {
 				return nil, err
 			}
@@ -131,7 +151,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			continue
 		}
 		// 复位设置
-		if resName == "cmdReSet" {
+		if resName == "reset" {
 			if err := d.handleResetCommand(deviceName); err != nil {
 				return nil, err
 			}
@@ -142,8 +162,8 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
-		// 时间设置
-		if resName == "cmdTimeParamSet" {
+		// 时间同步
+		if resName == "timeSync" {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {
 				return nil, err
 			}
@@ -155,34 +175,10 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			continue
 		}
 		// 工况查询
-		if resName == "cmdOperDataQ" {
+		if resName == "operStatus" {
 			if err := d.handleIdMoniDataQuery(deviceName); err != nil {
 				return nil, err
 			}
-			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
-			if cerr != nil {
-				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
-			}
-			res = append(res, cv)
-			continue
-		}
-		// 拓扑查询
-		if resName == "cmdTopoDiagQry" {
-			config.ClearTopo()
-
-			if err := d.handleRouterParameterQuery(deviceName); err != nil {
-				return nil, err
-			}
-			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
-			if cerr != nil {
-				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)
-			}
-			res = append(res, cv)
-			continue
-		}
-		// 升级触发
-		if resName == "cmdUpgrade" {
-			_ = d.startUpgradeAsync(deviceName)
 			cv, cerr := dsModels.NewCommandValue(resName, common.ValueTypeString, "发送成功")
 			if cerr != nil {
 				return nil, fmt.Errorf("NewCommandValue 失败: %w", cerr)

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -94,7 +95,6 @@ func LoadParamMapFromExcel(excelPath string) error {
 			continue
 		}
 
-		// 字符串转数字
 		featureVal, err := parseBinToUint8(featureBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad featureBits %q: %w", i+1, featureBits, err)
@@ -126,4 +126,96 @@ func parseBinToUint8(s string) (uint8, error) {
 func parseBinToUint16(s string) (uint16, error) {
 	v, err := strconv.ParseUint(strings.TrimSpace(s), 2, 16)
 	return uint16(v), err
+}
+
+// Excel 解析
+// 0 标准类型
+// 1 所属版本
+// 2 参量特征(3位二进制)
+// 3 参量类型编码(11位二进制)
+// 4 参量名称
+// 5 数据类型
+// 6 单位
+// 7 数据长度
+// 8 备注
+
+func LoadParamMapFromReader(r io.Reader, name string) error {
+	f, err := excelize.OpenReader(r)
+	if err != nil {
+		return fmt.Errorf("excel open from %s error: %w", name, err)
+	}
+	defer f.Close()
+
+	// 第一张表
+	sheetName := f.GetSheetName(0)
+	if sheetName == "" {
+		return fmt.Errorf("excel(%s) has no sheets", name)
+	}
+
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		return fmt.Errorf("read rows failed(%s): %w", name, err)
+	}
+
+	newParamMap := make(map[ParamKey]ParamInfo)
+
+	for i, row := range rows {
+		if i == 0 {
+			// 跳过表头
+			continue
+		}
+		if len(row) == 0 {
+			continue
+		}
+
+		// 取单元格工具
+		col := func(idx int) string {
+			if idx < len(row) {
+				return strings.TrimSpace(row[idx])
+			}
+			return ""
+		}
+
+		featureBits := col(2)
+		typeCodeBits := col(3)
+		dataTypeCN := col(5)
+		dataLenBytes := col(7)
+
+		// 必填列缺失就跳过该行
+		if featureBits == "" || typeCodeBits == "" || dataTypeCN == "" || dataLenBytes == "" {
+			continue
+		}
+
+		// 根据“数据类型 + 数据长度”查找解析函数
+		ti, ok := LookupTypeInfo(dataLenBytes, dataTypeCN)
+		if !ok {
+			// 这里不退出整体加载，打印一下提示即可
+			fmt.Printf("LoadParamMapFromReader(%s) row=%d: 没有对应数据解析函数 len=%q type=%q\n",
+				name, i+1, dataLenBytes, dataTypeCN)
+			continue
+		}
+
+		featureVal, err := parseBinToUint8(featureBits)
+		if err != nil {
+			return fmt.Errorf("row %d: bad featureBits %q: %w", i+1, featureBits, err)
+		}
+
+		typeCodeVal, err := parseBinToUint16(typeCodeBits)
+		if err != nil {
+			return fmt.Errorf("row %d: bad typeCodeBits %q: %w", i+1, typeCodeBits, err)
+		}
+
+		key := ParamKey{
+			FeatureBits: featureVal,  // 参量特征(3位二进制)
+			CodeBits:    typeCodeVal, // 参量类型编码(11位二进制)
+		}
+
+		newParamMap[key] = ParamInfo{
+			Parse: ti.Parse,
+		}
+	}
+
+	// 覆盖全局 paramMap（注意：并发环境下视情况加锁）
+	paramMap = newParamMap
+	return nil
 }

@@ -20,15 +20,3 @@ func SetParamEidMap(par ParamKey, eid EidInfo) {
 	}
 	ParamEidMap[par] = eid
 }
-
-// 资源 -> EID
-// func GetParamEidMap(par ParamKey) (eid EidInfo) {
-// 	mu2.RLock()
-// 	defer mu2.RUnlock()
-// 	deviceValues, ok := ValuesMap[deviceName]
-// 	if !ok {
-// 		return nil, false
-// 	}
-// 	value, exists := deviceValues[resourceName]
-// 	return value, exists
-// }

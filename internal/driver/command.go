@@ -38,7 +38,6 @@ func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 		d.lc.Error(err.Error())
 		return err
 	}
-
 	eidBytes, err := hex.DecodeString(config.EidStr)
 	if err != nil {
 		err = fmt.Errorf("时间设置 EID[%s] 转十六进制失败: %w", config.EidStr, err)

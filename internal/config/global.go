@@ -6,12 +6,12 @@ import (
 )
 
 var (
-	UpgradeTCPPort uint32 = 12345                                      // TCP端口
-	WriteChan             = make(chan []byte, 100)                     // 写通道
-	EidStr                = "238A0841D828"                             // 模块EID
-	BrokerURL             = "tcp://172.16.19.91:1883"                  //MQTT代理
-	MqttTopicUp           = "edgex/service/request/device-wiresink/up" // 上行
-	MqttTopicDown         = "edgex/device/<svc>/uplink/event"          // 上行
+	UpgradeTCPPort uint32 = 12345                                        // TCP端口
+	WriteChan             = make(chan []byte, 100)                       // 写通道
+	EidStr                = "238A0841D828"                               // 模块EID
+	BrokerURL             = "tcp://172.16.19.91:1883"                    //MQTT代理
+	MqttTopicUp           = "edgex/service/request/device-wiresink/up"   // 上行
+	MqttTopicDown         = "edgex/server/response/device-wiresink/down" // 下行
 
 	DevicesYAML = "../cmd/res/devices/devices.yaml"
 	ProfilesDir = "../cmd/res/profiles"

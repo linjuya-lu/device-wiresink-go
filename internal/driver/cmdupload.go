@@ -100,14 +100,14 @@ func (d *WireSinkDriver) StartAsyncReporter() {
 				if resMap == nil {
 					continue
 				}
-				stateVal, ok := resMap["heatbeat"]
+				stateVal, ok := resMap["state"]
 				if !ok {
 					continue
 				}
 				values := map[string]any{
-					"heatbeat": stateVal,
+					"state": stateVal,
 				}
-				d.AsyncReporting(deviceName, "heatbeat", values)
+				d.AsyncReporting(deviceName, "state", values)
 			}
 		}
 	}()

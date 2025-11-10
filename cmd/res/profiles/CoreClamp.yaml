@@ -70,9 +70,9 @@ deviceResources:
     attributes:
       paramFeatures: "000"
       paramType: "00000000101"
-  - name: "heatbeat"
+  - name: "state"
     isHidden: true
-    description: "工作状态"
+    description: "在线状态"
     properties:
       valueType: "Uint8"
       readWrite: "R"
@@ -94,5 +94,5 @@ deviceCommands:
       - { deviceResource: "BatVolt", defaultValue: "0" }
       - { deviceResource: "ElecCurr", defaultValue: "0" }
       - { deviceResource: "Temp", defaultValue: "0" }
-      - { deviceResource: "heatbeat", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
 

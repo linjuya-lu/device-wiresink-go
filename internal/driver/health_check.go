@@ -33,8 +33,8 @@ func (d *WireSinkDriver) startHealthCheckLoop() {
 					continue
 				}
 
-				state := StateOnline                          // 判定在线状态
-				config.SetDeviceValue(dev, "heatbeat", state) // 写回心跳状态
+				state := StateOnline                       // 判定在线状态
+				config.SetDeviceValue(dev, "state", state) // 写回心跳状态
 
 				//触发拓扑查询
 				if err := d.handleRouterParameterQuery(dev); err != nil {

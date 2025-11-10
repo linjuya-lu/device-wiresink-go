@@ -148,7 +148,7 @@ deviceResources:
     attributes:
       paramFeatures: "000"
       paramType: "00000000101"
-  - name: "heatbeat"                               
+  - name: "state"                               
     isHidden: true
     description: "传感器运行状态"              # 0=正常,1=故障
     properties:
@@ -169,7 +169,7 @@ deviceResources:
       readWrite: "R"                 
       units: ""                      
       defaultValue: "" 
-  - name: "cmdTimeParamQry"
+  - name: "timeQuery"
     isHidden: false
     description: "时间查询"
     properties:
@@ -183,23 +183,23 @@ deviceResources:
     properties:
       valueType: "String"
       readWrite: "R"
-  - name: "cmdTimeParamSet"  
+  - name: "timeSync"  
     isHidden: false
-    description: "时间设置"
+    description: "时间同步"
     properties:
       valueType: "String"    
       readWrite: "R"       
       units: ""
       defaultValue: "0"      
-  - name: "cmdReSet"  
+  - name: "reset"  
     isHidden: false
-    description: "复位设置"
+    description: "复位"
     properties:
       valueType: "String"    
       readWrite: "R"       
       units: ""
       defaultValue: "0"   
-  - name: "cmdOperDataQ"  
+  - name: "operStatus"  
     isHidden: false
     description: "工况查询"
     properties:
@@ -207,23 +207,7 @@ deviceResources:
       readWrite: "R"       
       units: ""
       defaultValue: "0"   
-  - name: "cmdUpgrade"  
-    isHidden: false
-    description: "升级命令"
-    properties:
-      valueType: "String"    
-      readWrite: "R"       
-      units: ""
-      defaultValue: "0"  
-  - name: "cmdTopoDiagQry"   
-    isHidden: false
-    description: "拓扑查询"
-    properties:
-      valueType: "String"    
-      readWrite: "R"        
-      units: ""            
-      defaultValue: "0"     
-  - name: "resourceTopologyDiagram"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
+  - name: "topo"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
     isHidden: false
     description: "路由信息"
     properties:
@@ -256,6 +240,6 @@ deviceCommands:
       - { deviceResource: "BatVolt", defaultValue: "0" }
       - { deviceResource: "ElecCurr", defaultValue: "0" }
       - { deviceResource: "Temp", defaultValue: "0" }
-      - { deviceResource: "heatbeat", defaultValue: "0" }
+      - { deviceResource: "state", defaultValue: "0" }
 
 

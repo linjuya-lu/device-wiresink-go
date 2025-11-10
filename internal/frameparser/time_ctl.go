@@ -10,7 +10,7 @@ import (
 const packetTypeControl = 0x04
 const ctrlTypeTimeParam = 0x04
 
-// 时间参数查询/设置原始报文
+// 时间参数查询/设置
 //
 //	requestSetFlag  0=查询，1=设置
 //	timestamp       世纪秒
