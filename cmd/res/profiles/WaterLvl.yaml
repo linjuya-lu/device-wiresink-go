@@ -59,7 +59,7 @@ deviceResources:
       paramType: "00000011111"              
 deviceCommands:
   -
-    name: "AsyncData"
+    name: "asyncData"
     readWrite: "R"
     isHidden: false
     resourceOperations:

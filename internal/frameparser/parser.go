@@ -22,23 +22,17 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 	go func() {
 		for frame := range frameCh {
 			fmt.Printf("Received frame (%d bytes): % X\n", len(frame), frame)
-			// 长度校验
+			// 校验
 			if len(frame) < 9 {
-				log.Println("帧长度不足，跳过解析")
 				continue
 			}
-			// CRC 校验
 			payload := frame[:len(frame)-2]
 			recvCRC := binary.BigEndian.Uint16(frame[len(frame)-2:])
-			// 解析EID
+			// 找EID对应设备
 			sidBytes := frame[0:6]
 			sensorID := strings.ToUpper(hex.EncodeToString(sidBytes))
 			deviceName, hasDevice := config.LookupDeviceName(sensorID)
 			if !hasDevice {
-				log.Printf("EID映射表 key: %#v", config.SensorIDToDeviceName)
-
-				log.Printf(">>[%s]<<", sensorID)
-
 				log.Printf("未知 EID=%s，跳过本帧", sensorID)
 				continue
 			}
@@ -48,22 +42,22 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			dataCount := int(head >> 4)
 			fragInd := (head >> 3) & 0x1
 			packetType := head & 0x07
-			body := make([]byte, len(frame)-2-7)
+			// 负载
+			body := make([]byte, len(frame)-9)
 			copy(body, frame[7:len(frame)-2])
+			//错误响应
 			if CRC16(payload) != recvCRC {
 				if fragInd == 0 {
 					switch packetType {
-					case 0:
+					case 0: // 监测报文
 						SendDataStatus(sensorID, 0b001, 0x00, byte(dataCount))
-						// 监测报文
-					case 2:
+					case 2: // 告警报文
 						SendDataStatus(sensorID, 0b011, 0x00, byte(dataCount))
-						// 告警报文
 					default:
 						continue
 					}
 				}
-				log.Println("CRC 校验失败，跳过解析")
+				log.Println("CRC 校验失败")
 				continue
 			}
 			frame_ctl := config.Frame{
@@ -74,20 +68,17 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				Payload:    body,
 				Check:      recvCRC,
 			}
+			// 正常响应
 			if fragInd == 0 {
-				// 非分片帧：只处理业务或控制报文
 				switch packetType {
-				case 0:
+				case 0: // 监测报文
 					SendDataStatus(sensorID, 0b001, 0xFF, byte(dataCount))
-					// 监测报文
-				case 2:
+				case 2: // 告警报文
 					SendDataStatus(sensorID, 0b011, 0xFF, byte(dataCount))
-					// 告警报文
-				case 4, 5:
-					// 控制报文响应
+				case 4, 5: // 控制报文与处理
 					handleFrameCtl(frame_ctl)
 					if config.ResourcesFlag {
-						cb(deviceName, "AsyncData", config.Resources1)
+						cb(deviceName, "asyncData", config.Resources1)
 						config.ResourcesFlag = false
 					}
 					continue
@@ -96,19 +87,19 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				}
 			} else {
 			}
+			//正常业务数据
 			idx := 7
 			parsed := 0
 			resourceValues := make(map[string]any)
 			for parsed < dataCount {
-				// 参数头2字节
 				if idx+2 > len(frame)-2 {
-					log.Printf("参数头越界 SensorID=%s，跳过本帧", sensorID)
+					log.Printf("业务参数类型越界 SensorID=%s", sensorID)
 					break
 				}
 				head16 := binary.LittleEndian.Uint16(frame[idx : idx+2])
 				idx += 2
-				paramType := head16 >> 2       // 14bit类型码
-				lenFlag := uint8(head16 & 0x3) // 2bit长度指示
+				paramType := head16 >> 2       // 参量类型
+				lenFlag := uint8(head16 & 0x3) // 数据长度指示
 				// 数据长度
 				var dataLen uint32
 				switch lenFlag {
@@ -124,18 +115,17 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 					dataLen = uint32(frame[idx])<<16 | uint32(frame[idx+1])<<8 | uint32(frame[idx+2])
 					idx += 3
 				}
-				// 提取原始值字节
 				log.Printf("lenFlag=%d dataLen=%d idx=%d frameLen=%d", lenFlag, dataLen, idx, len(frame))
 
+				// 解析数据
 				valBytes := frame[idx : idx+int(dataLen)]
 				idx += int(dataLen)
-				// 解析数据
 				if info, ok := config.LookupParamInfo(paramType); ok {
 					val, err := info.Parse(valBytes)
 					if err != nil {
 						log.Printf("参数 %s.%s 解析失败: %v", deviceName, "info.Name", err)
 					} else {
-						// 写入运行时值表
+						// 写入映射表
 						if val != nil {
 							config.SetDeviceValue(deviceName, "info.Name", val)
 							resourceValues["info.Name"] = val
@@ -154,7 +144,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			fmt.Printf("cb=%v, len(resourceValues)=%d\n", cb, len(resourceValues))
 
 			if cb != nil && len(resourceValues) > 0 {
-				cb(deviceName, "AsyncData", resourceValues)
+				cb(deviceName, "asyncData", resourceValues)
 			}
 			if parsed < dataCount {
 				continue

@@ -225,7 +225,7 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 	if eid, ok := extractEID(protocols); ok {
 		config.AddMapping(eid, deviceName)
 	} else {
-		d.lc.Warnf("设备 %s 未提供 LoRa.eid", deviceName)
+		d.lc.Warnf("设备 %s 未提供eid", deviceName)
 	}
 	//初始资源
 	dev, err := d.sdk.GetDeviceByName(deviceName)

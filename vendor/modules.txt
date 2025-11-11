@@ -244,8 +244,6 @@ github.com/labstack/gommon/log
 ## explicit; go 1.18
 github.com/leodido/go-urn
 github.com/leodido/go-urn/scim/schema
-# github.com/linjuya-lu/device-wiresink-go v0.0.0-20250902095137-e3277d1e688e
-## explicit; go 1.23
 # github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0
 ## explicit; go 1.16
 github.com/lufia/plan9stats

@@ -61,8 +61,10 @@ func LookupResponseHandle(head uint8) (ResponseHandle, bool) {
 }
 
 // ===================== 通用解析函数 =====================
-var Resources1 = make(map[string]any)
-var ResourcesFlag bool = false
+var (
+	Resources1         = make(map[string]any)
+	ResourcesFlag bool = false
+)
 
 // 通用参数查询/设置
 func common_para_response(data []byte, frameCtl Frame) error {

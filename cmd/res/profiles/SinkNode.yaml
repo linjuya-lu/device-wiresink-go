@@ -225,7 +225,7 @@ deviceResources:
       defaultValue: "空闲"   
 deviceCommands:
   -
-    name: "AsyncData"
+    name: "asyncData"
     readWrite: "R"
     isHidden: false
     resourceOperations:
