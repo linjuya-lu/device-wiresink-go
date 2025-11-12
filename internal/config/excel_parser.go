@@ -95,11 +95,11 @@ func LoadParamMapFromExcel(excelPath string) error {
 			continue
 		}
 
-		featureVal, err := parseBinToUint8(featureBits)
+		featureVal, err := ParseBinToUint8(featureBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad featureBits %q: %w", i+1, featureBits, err)
 		}
-		typeCodeVal, err := parseBinToUint16(typeCodeBits)
+		typeCodeVal, err := ParseBinToUint16(typeCodeBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad typeCodeBits %q: %w", i+1, typeCodeBits, err)
 		}
@@ -118,12 +118,12 @@ func LoadParamMapFromExcel(excelPath string) error {
 }
 
 // 字符串转整数
-func parseBinToUint8(s string) (uint8, error) {
+func ParseBinToUint8(s string) (uint8, error) {
 	v, err := strconv.ParseUint(strings.TrimSpace(s), 2, 8)
 	return uint8(v), err
 }
 
-func parseBinToUint16(s string) (uint16, error) {
+func ParseBinToUint16(s string) (uint16, error) {
 	v, err := strconv.ParseUint(strings.TrimSpace(s), 2, 16)
 	return uint16(v), err
 }
@@ -195,12 +195,12 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 			continue
 		}
 
-		featureVal, err := parseBinToUint8(featureBits)
+		featureVal, err := ParseBinToUint8(featureBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad featureBits %q: %w", i+1, featureBits, err)
 		}
 
-		typeCodeVal, err := parseBinToUint16(typeCodeBits)
+		typeCodeVal, err := ParseBinToUint16(typeCodeBits)
 		if err != nil {
 			return fmt.Errorf("row %d: bad typeCodeBits %q: %w", i+1, typeCodeBits, err)
 		}

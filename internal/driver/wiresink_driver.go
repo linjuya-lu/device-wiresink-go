@@ -33,6 +33,7 @@ type WireSinkDriver struct {
 	upgrading map[string]context.CancelFunc
 
 	upgradeFiles map[string]string // deviceName -> firmware local path
+
 }
 
 var (
@@ -60,6 +61,12 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 		return fmt.Errorf("初始化 MQTT 客户端失败: %w", err)
 	}
 	mqttclient.MqttClient = client
+	if d.upgrading == nil {
+		d.upgrading = make(map[string]context.CancelFunc)
+	}
+	if d.upgradeFiles == nil {
+		d.upgradeFiles = make(map[string]string)
+	}
 
 	return nil
 }
@@ -219,6 +226,23 @@ func (d *WireSinkDriver) Stop(force bool) error {
 	return nil
 }
 
+// 辅助解析
+func parseBin8(s string) (uint8, error) {
+	u, err := strconv.ParseUint(s, 2, 8)
+	return uint8(u), err
+}
+func parseBin16(s string) (uint16, error) {
+	u, err := strconv.ParseUint(s, 2, 16)
+	return uint16(u), err
+}
+func isBin(s string) bool {
+	for _, ch := range s {
+		if ch != '0' && ch != '1' {
+			return false
+		}
+	}
+	return true
+}
 func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
 	d.lc.Debugf("添加设备: %s", deviceName)
 	//添加EID
@@ -241,10 +265,40 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 		resName := dr.Name
 		defaultValue := dr.Properties.DefaultValue
 		valueType := dr.Properties.ValueType
+
 		if err := config.DeviceInit(deviceName, resName, defaultValue, valueType); err != nil {
 			return fmt.Errorf("初始化设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
 		d.lc.Debugf("已将设备 %s 的资源 %s 初始化: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+
+		// lora属性解析
+		var featStr, typeStr string
+		if dr.Attributes != nil {
+			if v, ok := dr.Attributes["paramFeatures"]; ok && v != nil {
+				featStr = strings.TrimSpace(fmt.Sprint(v))
+			}
+			if v, ok := dr.Attributes["paramType"]; ok && v != nil {
+				typeStr = strings.TrimSpace(fmt.Sprint(v))
+			}
+		}
+		if featStr == "" || typeStr == "" {
+			d.lc.Debugf("资源 %s 未配置 attributes.paramFeatures/paramType，跳过登记", resName)
+			continue
+		}
+
+		featureBits, err1 := parseBin8(featStr)
+		typeBits, err2 := parseBin16(typeStr)
+		if err1 != nil || err2 != nil {
+			d.lc.Warnf("资源 %s 的二进制解析失败: %v %v，跳过登记", resName, err1, err2)
+			continue
+		}
+		key := config.ParamKey{
+			FeatureBits: featureBits,
+			CodeBits:    typeBits,
+		}
+		config.ParamEidAdd(key, deviceName, resName)
+		d.lc.Debugf("ParamEidRegistry 登记: dev=%s res=%s -> Feature=%03b Code=%011b",
+			deviceName, resName, featureBits, typeBits)
 	}
 	return nil
 }
@@ -275,6 +329,38 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 			return fmt.Errorf("更新设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
 		d.lc.Debugf("已将设备 %s 的资源 %s 初始化: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
+		// lora属性解析
+		var featStr, typeStr string
+		if dr.Attributes != nil {
+			if v, ok := dr.Attributes["paramFeatures"]; ok && v != nil {
+				featStr = strings.TrimSpace(fmt.Sprint(v))
+			}
+			if v, ok := dr.Attributes["paramType"]; ok && v != nil {
+				typeStr = strings.TrimSpace(fmt.Sprint(v))
+			}
+		}
+		if featStr == "" || typeStr == "" {
+			d.lc.Debugf("资源 %s 未配置 attributes.paramFeatures/paramType，跳过登记", resName)
+			continue
+		}
+		if len(featStr) != 3 || len(typeStr) != 11 || !isBin(featStr) || !isBin(typeStr) {
+			d.lc.Warnf("资源 %s 的二进制长度/字符非法: paramFeatures=%q paramType=%q，跳过登记", resName, featStr, typeStr)
+			continue
+		}
+
+		featureBits, err1 := parseBin8(featStr)
+		typeBits, err2 := parseBin16(typeStr)
+		if err1 != nil || err2 != nil {
+			d.lc.Warnf("资源 %s 的二进制解析失败: %v %v，跳过登记", resName, err1, err2)
+			continue
+		}
+		key := config.ParamKey{
+			FeatureBits: featureBits,
+			CodeBits:    typeBits,
+		}
+		config.ParamEidUpdate(key, deviceName, resName)
+		d.lc.Debugf("ParamEidRegistry 登记: dev=%s res=%s -> Feature=%03b Code=%011b",
+			deviceName, resName, featureBits, typeBits)
 	}
 
 	d.lc.Infof("刷新设备 %s 的资源值", deviceName)
@@ -294,12 +380,58 @@ func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]mo
 		d.lc.Errorf("删除设备资源错误 %s : %v", deviceName, err)
 		return fmt.Errorf(" %s删除错误 : %w", deviceName, err)
 	}
+	//删除参数表
+	dev, err := d.sdk.GetDeviceByName(deviceName)
+	if err != nil {
+		return fmt.Errorf("获取设备 %s 失败: %w", deviceName, err)
+	}
+	profileName := dev.ProfileName
+	prof, err := d.sdk.GetProfileByName(profileName)
+	if err != nil {
+		return fmt.Errorf("获取设备配置文件 %s 失败: %w", profileName, err)
+	}
+	for _, dr := range prof.DeviceResources {
+		resName := dr.Name
+
+		var featStr, typeStr string
+		if dr.Attributes != nil {
+			if v, ok := dr.Attributes["paramFeatures"]; ok && v != nil {
+				featStr = strings.TrimSpace(fmt.Sprint(v))
+			}
+			if v, ok := dr.Attributes["paramType"]; ok && v != nil {
+				typeStr = strings.TrimSpace(fmt.Sprint(v))
+			}
+		}
+		if featStr == "" || typeStr == "" {
+			d.lc.Debugf("资源 %s 未配置 attributes.paramFeatures/paramType，跳过登记", resName)
+			continue
+		}
+		if len(featStr) != 3 || len(typeStr) != 11 || !isBin(featStr) || !isBin(typeStr) {
+			d.lc.Warnf("资源 %s 的二进制长度/字符非法: paramFeatures=%q paramType=%q，跳过登记", resName, featStr, typeStr)
+			continue
+		}
+
+		featureBits, err1 := parseBin8(featStr)
+		typeBits, err2 := parseBin16(typeStr)
+		if err1 != nil || err2 != nil {
+			d.lc.Warnf("资源 %s 的二进制解析失败: %v %v，跳过登记", resName, err1, err2)
+			continue
+		}
+		key := config.ParamKey{
+			FeatureBits: featureBits,
+			CodeBits:    typeBits,
+		}
+		config.ParamEidDelete(key, deviceName)
+		d.lc.Debugf("ParamEidRegistry 删除: dev=%s res=%s -> Feature=%03b Code=%011b",
+			deviceName, resName, featureBits, typeBits)
+	}
 
 	if err := config.DeleteSensorIDMappingsByDevice(deviceName); err != nil {
 		d.lc.Errorf("删除设备映射错误 %s : %v", deviceName, err)
 		return fmt.Errorf("删除错误 %s : %w", deviceName, err)
 	}
 	d.lc.Infof("成功移除 %s ", deviceName)
+
 	return nil
 }
 
