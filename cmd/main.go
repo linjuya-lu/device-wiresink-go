@@ -12,7 +12,5 @@ const (
 
 func main() {
 	d := driver.WireSinkDeviceDriver()
-
 	startup.Bootstrap(serviceName, Version, d)
-
 }

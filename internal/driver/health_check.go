@@ -24,20 +24,15 @@ func (d *WireSinkDriver) startHealthCheckLoop() {
 				deviceNames = append(deviceNames, dev)
 			}
 			config.Mu.RUnlock()
-
 			for _, dev := range deviceNames {
-
 				// 读取这个设备的运行期状态字典
 				vals, ok := config.GetDeviceValues(dev)
 				if !ok || vals == nil {
 					continue
 				}
-
-				state := StateOnline                       // 判定在线状态
-				config.SetDeviceValue(dev, "state", state) // 写回心跳状态
-
-				//触发拓扑查询
-				if err := d.handleRouterParameterQuery(dev); err != nil {
+				state := StateOnline                                      // 判定在线状态
+				config.SetDeviceValue(dev, "state", state)                // 写回心跳状态
+				if err := d.handleRouterParameterQuery(dev); err != nil { //触发拓扑查询
 					return
 				}
 			}

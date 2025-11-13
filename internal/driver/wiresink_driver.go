@@ -23,23 +23,21 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go-arm/internal/mqttclient"
 )
 
+var (
+	once   sync.Once
+	driver *WireSinkDriver
+)
+
 type WireSinkDriver struct {
 	lc      logger.LoggingClient
 	asyncCh chan<- *dsModels.AsyncValues
 	locker  sync.Mutex
 	sdk     interfaces.DeviceServiceSDK
 
-	upgMu     sync.Mutex //异步升级锁
-	upgrading map[string]context.CancelFunc
-
-	upgradeFiles map[string]string // deviceName -> firmware local path
-
+	upgMu        sync.Mutex //异步升级锁
+	upgrading    map[string]context.CancelFunc
+	upgradeFiles map[string]string // 固件存储路径
 }
-
-var (
-	once   sync.Once
-	driver *WireSinkDriver
-)
 
 func WireSinkDeviceDriver() interfaces.ProtocolDriver {
 	once.Do(func() {
@@ -72,14 +70,6 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 }
 
 func (d *WireSinkDriver) Start() error {
-	//后台升级
-	if d.upgrading == nil {
-		d.upgrading = make(map[string]context.CancelFunc)
-	}
-	// 每个设备的固件文件路径
-	if d.upgradeFiles == nil {
-		d.upgradeFiles = make(map[string]string)
-	}
 	if err := d.sdk.AddCustomRoute(
 		"/custom/firmware-upgrade",
 		interfaces.Unauthenticated,
@@ -107,10 +97,8 @@ func (d *WireSinkDriver) Start() error {
 	if err := mqttclient.SubscribeData(mqttclient.MqttClient, config.MqttTopicUp, 0); err != nil {
 		return err
 	}
-
 	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting) // 业务数据解析协程
 	d.startHealthCheckLoop()                                            // 健康检查
-	d.StartAsyncReporter()                                              //心跳上传
 	d.lc.Infof("有线汇聚已启动......")
 	return nil
 }
@@ -300,6 +288,10 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 		d.lc.Debugf("ParamEidRegistry 登记: dev=%s res=%s -> Feature=%03b Code=%011b",
 			deviceName, resName, featureBits, typeBits)
 	}
+	if err := config.DeviceInit(deviceName, "LastDataTs", "Int64", "0"); err != nil {
+		return fmt.Errorf("初始化设备 %s 初始化失败", deviceName)
+	}
+	d.lc.Debugf("初始化设备 %s 时间戳已初始化", deviceName)
 	return nil
 }
 
@@ -709,7 +701,6 @@ func extractEID(protocols map[string]models.ProtocolProperties) (string, bool) {
 	if loraProps == nil {
 		return "", false
 	}
-
 	// 读出 eid
 	for _, key := range []string{"eid"} {
 		if val, ok := loraProps[key]; ok {

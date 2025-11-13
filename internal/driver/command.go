@@ -56,7 +56,6 @@ func (d *WireSinkDriver) handleTimeParameterSet(deviceName string) error {
 	ts := uint32(time.Now().In(loc).Unix())
 
 	reqFrame, _ := frameparser.BuildTimeParamFrame(sensorID, 1, ts)
-
 	eidStr, _ := eidValue.(string)
 	relay.SendFrame(eidStr, reqFrame)
 	d.lc.Infof("时间设置 已发送时间设置命令到设备 %s (EID: %s)", deviceName, eidStr)
