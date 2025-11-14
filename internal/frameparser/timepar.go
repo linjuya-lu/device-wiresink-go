@@ -4,10 +4,10 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 	"github.com/linjuya-lu/device-wiresink-go-arm/internal/relay"
 )
 
-const packetTypeControl = 0x04
 const ctrlTypeTimeParam = 0x04
 
 // 时间参数查询/设置
@@ -22,7 +22,7 @@ func BuildTimeParamFrame(sensorID [6]byte, requestSetFlag byte, timestamp uint32
 	// EID
 	buf = append(buf, sensorID[:]...)
 	//头
-	head := byte(0<<4) | byte(0<<3) | byte(packetTypeControl&0x07)
+	head := byte(0<<4) | byte(0<<3) | byte(packetType&0x07)
 	buf = append(buf, head)
 	//控制类型
 	ctrlByte := byte((ctrlTypeTimeParam&0x7F)<<1) | (requestSetFlag & 0x01)
@@ -33,7 +33,7 @@ func BuildTimeParamFrame(sensorID [6]byte, requestSetFlag byte, timestamp uint32
 	binary.LittleEndian.PutUint32(tsBytes, timestamp)
 	buf = append(buf, tsBytes...)
 	//校验
-	crc := CRC16(buf)
+	crc := config.CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
 	buf = append(buf, crcBytes...)
@@ -49,7 +49,7 @@ func RestCommandBuildFrame(eidStr string, sensorID [6]byte, requestSetFlag byte,
 	// EID
 	buf = append(buf, sensorID[:]...)
 	// 头
-	head := byte(0<<4) | byte(0<<3) | byte(packetTypeControl&0x07)
+	head := byte(0<<4) | byte(0<<3) | byte(packetType&0x07)
 	buf = append(buf, head)
 	// 控制类型
 	ctrlByte := byte((ctrlTypeTimeParam&0x7F)<<1) | (requestSetFlag & 0x01)
@@ -59,7 +59,7 @@ func RestCommandBuildFrame(eidStr string, sensorID [6]byte, requestSetFlag byte,
 	binary.LittleEndian.PutUint32(tsBytes, timestamp)
 	buf = append(buf, tsBytes...)
 	// 校验
-	crc := CRC16(buf)
+	crc := config.CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
 	buf = append(buf, crcBytes...)

@@ -123,19 +123,10 @@ func (d *WireSinkDriver) handleIdMoniDataQuery(deviceName string) error {
 	return nil
 }
 
-func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
-	d.lc.Debugf("拓扑查询: %s", deviceName)
-
-	eidValue, ok := config.GetDeviceValue(deviceName, "eid")
-	if !ok {
-		err := fmt.Errorf("拓扑查询 设备 %s 的 EID 未初始化", deviceName)
-		d.lc.Error(err.Error())
-		return err
-	}
-
+func (d *WireSinkDriver) handleRouterParameterQuery() error {
 	eidBytes, err := hex.DecodeString(config.EidStr)
 	if err != nil {
-		err = fmt.Errorf("拓扑查询 EID[%s] 转十六进制失败: %w", config.EidStr, err)
+		err = fmt.Errorf("EID[%s] 转十六进制失败: %w", config.EidStr, err)
 		d.lc.Error(err.Error())
 		return err
 	}
@@ -146,15 +137,12 @@ func (d *WireSinkDriver) handleRouterParameterQuery(deviceName string) error {
 	}
 	var sensorID [6]byte
 	copy(sensorID[:], eidBytes)
-
 	frame, err := frameparser.BuildGeneralParamQueryFrame(sensorID, 0x0800)
 	if err != nil {
 		return fmt.Errorf("拓扑查询 构造拓扑查询失败: %w", err)
 	}
-	eidStr, _ := eidValue.(string)
-
-	relay.SendFrame(eidStr, frame)
-	d.lc.Infof("已发送拓扑查询命令到设备 %s (EID: %s)", deviceName, eidStr)
+	relay.SendFrame(config.GatewayEID, frame)
+	d.lc.Infof("已发送拓扑查询命令到设备(EID: %s)", config.GatewayEID)
 	return nil
 }
 

@@ -5,27 +5,24 @@ import (
 	"sync"
 )
 
-// ---- 键：ParamKey + DeviceName ----
-
 type ParamKeyDevice struct {
 	Key        ParamKey
 	DeviceName string
 }
 
-// 全局变量：并发安全需要配合锁使用
 var (
 	ParamEidMu  sync.RWMutex
-	ParamEidMap = make(map[ParamKeyDevice]string) // value = ResourceName
+	ParamEidMap = make(map[ParamKeyDevice]string)
 )
 
-// 新增/覆盖：绑定 (ParamKey, deviceName) -> resourceName
+// 新增
 func ParamEidAdd(par ParamKey, deviceName, resourceName string) {
 	ParamEidMu.Lock()
 	ParamEidMap[ParamKeyDevice{Key: par, DeviceName: deviceName}] = resourceName
 	ParamEidMu.Unlock()
 }
 
-// 删除：按 (ParamKey, deviceName)
+// 删除
 func ParamEidDelete(par ParamKey, deviceName string) error {
 	ParamEidMu.Lock()
 	defer ParamEidMu.Unlock()
@@ -37,7 +34,7 @@ func ParamEidDelete(par ParamKey, deviceName string) error {
 	return nil
 }
 
-// 更新：按 (ParamKey, deviceName) 改 resourceName
+// 更新
 func ParamEidUpdate(par ParamKey, deviceName, resourceName string) error {
 	ParamEidMu.Lock()
 	defer ParamEidMu.Unlock()
@@ -49,7 +46,7 @@ func ParamEidUpdate(par ParamKey, deviceName, resourceName string) error {
 	return nil
 }
 
-// 查询：按 (ParamKey, deviceName) 取 resourceName
+// 查询
 func ParamEidGet(par ParamKey, deviceName string) (string, bool) {
 	ParamEidMu.RLock()
 	defer ParamEidMu.RUnlock()
@@ -57,7 +54,7 @@ func ParamEidGet(par ParamKey, deviceName string) (string, bool) {
 	return v, ok
 }
 
-// 快照导出（深拷贝一份，避免外部改内部 map）
+// 快照导出
 func ParamEidSnapshot() map[ParamKeyDevice]string {
 	ParamEidMu.RLock()
 	defer ParamEidMu.RUnlock()
@@ -68,7 +65,7 @@ func ParamEidSnapshot() map[ParamKeyDevice]string {
 	return cp
 }
 
-// 可选：清空全部绑定
+// 清空全部绑定
 func ParamEidClear() {
 	ParamEidMu.Lock()
 	ParamEidMap = make(map[ParamKeyDevice]string)

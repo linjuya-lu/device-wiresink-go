@@ -8,7 +8,7 @@ import (
 )
 
 func (d *WireSinkDriver) handleLoadParamMap(c echo.Context) error {
-	// 只支持 multipart: form-data, 字段名必须是 "file"
+	// 支持 multipart: form-data, 字段名必须是 "file"
 	fh, err := c.FormFile("file")
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]any{
@@ -26,8 +26,6 @@ func (d *WireSinkDriver) handleLoadParamMap(c echo.Context) error {
 	}
 	defer src.Close()
 
-	// 推荐：在 config 包里提供基于 Reader 的解析函数
-	// 会用 excelize.OpenReader(src) 去解析
 	if err := config.LoadParamMapFromReader(src, fh.Filename); err != nil {
 		d.lc.Errorf("LoadParamMapFromReader error: %v", err)
 		return c.JSON(http.StatusBadRequest, map[string]any{

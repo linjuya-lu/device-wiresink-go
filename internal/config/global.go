@@ -5,17 +5,36 @@ import (
 	"time"
 )
 
-var (
+const (
+	ServiceName    string = "device-wiresink"
+	Version        string = "1.0.0"
 	UpgradeTCPPort uint32 = 12345                                        // TCP端口
-	WriteChan             = make(chan []byte, 100)                       // 写通道
 	EidStr                = "238A0841D828"                               // 模块EID
+	GatewayEID            = "238A0841D828"                               // 汇聚网关EID
 	BrokerURL             = "tcp://172.16.19.91:1883"                    //MQTT代理
 	MqttTopicUp           = "edgex/service/request/device-wiresink/up"   // 上行
 	MqttTopicDown         = "edgex/server/response/device-wiresink/down" // 下行
+	DevicesYAML           = "../cmd/res/devices/devices.yaml"
+	ProfilesDir           = "../cmd/res/profiles"
+)
 
-	DevicesYAML = "../cmd/res/devices/devices.yaml"
-	ProfilesDir = "../cmd/res/profiles"
+// 上传表
+var (
+	Mu        sync.RWMutex
+	ValuesMap = make(map[string]map[string]any) //设备 → (资源 → 值)
+)
 
+// 解析表
+var (
+	paramMu  sync.RWMutex
+	paramMap = map[ParamKey]ParamInfo{
+		{0b000, 0b00000000001}: {parseFloat32},
+		{0b000, 0b00000001000}: {parseTopo},
+	}
+)
+
+var (
+	WriteChan     = make(chan []byte, 100) // 写通道
 	mu            sync.RWMutex
 	LastDataTsMap = make(map[string]int64) // 设备数据时间戳
 )
@@ -49,48 +68,8 @@ func GetTopoList() []NodeTopology {
 	return cloned
 }
 
-// -----------------------------------------------升级处理-------------------------------------------------------------------
-type FrameFlags struct {
-	Acked          bool // 是否收到响应
-	NeedComplement bool // 是否需要补包
-}
-
 // 升级ACK
 var (
 	AckReceived int
 	Mu3         sync.Mutex
 )
-
-// 设置ACK
-func SetAck(received bool) {
-	Mu3.Lock()
-	defer Mu3.Unlock()
-	if received {
-		AckReceived = 1
-	} else {
-		AckReceived = 0
-	}
-}
-
-// 读取ACK
-func GetAck() int {
-	Mu3.Lock()
-	defer Mu3.Unlock()
-	return AckReceived
-}
-
-// -----------------------------------------------心跳处理-------------------------------------------------------------------
-// 更新时间戳
-func UpdateLastDataTs(dev string, ts int64) {
-	mu.Lock()
-	LastDataTsMap[dev] = ts
-	mu.Unlock()
-}
-
-// 获取时间戳
-func GetLastDataTs(dev string) (int64, bool) {
-	mu.RLock()
-	ts, ok := LastDataTsMap[dev]
-	mu.RUnlock()
-	return ts, ok
-}

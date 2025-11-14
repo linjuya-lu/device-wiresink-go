@@ -114,25 +114,6 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 	}
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
-		// 请求路由
-		if resName == "topo" {
-			config.ClearTopo()
-			if err := d.handleRouterParameterQuery(deviceName); err != nil {
-				return nil, err
-			}
-			topo := config.GetTopoList()
-			fmt.Printf("拓扑路由:%s", topo)
-			cv, cerr := dsModels.NewCommandValue(
-				resName,
-				common.ValueTypeObject,
-				topo,
-			)
-			if cerr != nil {
-				return nil, fmt.Errorf("NewCommandValue函数 失败: %w", cerr)
-			}
-			res = append(res, cv)
-			continue
-		}
 		// 时间查询
 		if resName == "timeQuery" {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {

@@ -27,7 +27,6 @@ func (d *WireSinkDriver) handleFirmwareUpgrade(c echo.Context) error {
 			"error": "missing deviceName",
 		})
 	}
-
 	// 读取固件文件
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -36,7 +35,6 @@ func (d *WireSinkDriver) handleFirmwareUpgrade(c echo.Context) error {
 			"error": "missing firmware file: " + err.Error(),
 		})
 	}
-
 	src, err := fh.Open()
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]any{

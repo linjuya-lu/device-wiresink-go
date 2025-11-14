@@ -11,6 +11,8 @@ import (
 	"sort"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/linjuya-lu/device-wiresink-go-arm/internal/config"
 )
 
 var (
@@ -63,7 +65,7 @@ func BuildUpgradeRequest(cmdID string, frameNo byte, filePath string) ([]byte, e
 	writeU16BE(&buf, uint16(totalPackets))
 	// 4) CRC16：对 CMD_ID ~ Total_Packets 计算
 	payloadForCRC := buf.Bytes()[plenPos+2:] // 跳过 Sync(2) + Packet_Length(2)
-	crc := CRC16(payloadForCRC)
+	crc := config.CRC16(payloadForCRC)
 	writeU16BE(&buf, crc)
 	// End (1)
 	buf.WriteByte(byte(endByte))
@@ -174,7 +176,7 @@ func BuildUpgradeDataPacket(cmdID string, frameNo byte, subNo uint16, data []byt
 
 	// 6) CRC16 覆盖范围：从 Packet_Length 开始到 CRC 前（含 Packet_Length，不含 CRC/End）
 	crcRange := body[plenPos:buf.Len()]
-	crc := CRC16(crcRange)
+	crc := config.CRC16(crcRange)
 
 	// 7) CRC16 小端写入
 	writeU16LE(&buf, crc)
@@ -224,7 +226,7 @@ func UpgradeCompleted(cmdID string, frameNo byte, subNo uint16, data []byte) ([]
 
 	// 3) CRC16: 覆盖 CMD_ID ~ Data
 	p3to10 := buf.Bytes()[plenPos+2:] // 跳过 Sync+Packet_Length
-	crc := CRC16(p3to10)
+	crc := config.CRC16(p3to10)
 	writeU16BE(&buf, crc) // CRC16 (2)
 
 	// 4) End
@@ -360,7 +362,7 @@ func BuildUpgradeRequestEx(meta UpgradeMeta) ([]byte, error) {
 
 	// 6) CRC16 计算范围：从 Packet_Length 开始到 CRC 前（含 Packet_Length，不含 CRC/End）
 	crcRange := body[lenPos:buf.Len()]
-	crc := CRC16(crcRange)
+	crc := config.CRC16(crcRange)
 
 	// 7) CRC16 小端写入（低字节在前）
 	writeU16LE(&buf, crc)
@@ -540,7 +542,7 @@ func (r *ComplementRegistry) BuildUpgradeEndPacket(eid, fileName string, frameNo
 
 	// 5) CRC16：从 Packet_Length 起到 CRC 前（含 Packet_Length，不含 CRC/End），小端写入
 	crcRange := body[plenPos:buf.Len()]
-	crc := CRC16(crcRange)
+	crc := config.CRC16(crcRange)
 	writeU16LE(&buf, crc)
 
 	// 6) End
@@ -673,7 +675,7 @@ func ParseUpgradeStatus(data []byte) (*UpgradeStatus, error) {
 	status.End = data[len(data)-1]
 
 	// CRC 校验
-	calcCRC := CRC16(data[:len(data)-3])
+	calcCRC := config.CRC16(data[:len(data)-3])
 	if calcCRC != status.CRC16 {
 		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", status.CRC16, calcCRC)
 	}
@@ -745,7 +747,7 @@ func ParseComplementPacket(data []byte) (*ComplementPacket, error) {
 	cp.End = data[end+2]
 
 	// CRC 校验
-	calcCRC := CRC16(data[0:end]) // 只算到 CRC16 前
+	calcCRC := config.CRC16(data[0:end]) // 只算到 CRC16 前
 	if calcCRC != cp.CRC16 {
 		return nil, fmt.Errorf("CRC 校验失败: 报文CRC=0x%X, 计算CRC=0x%X", cp.CRC16, calcCRC)
 	}

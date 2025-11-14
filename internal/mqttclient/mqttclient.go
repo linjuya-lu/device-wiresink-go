@@ -192,7 +192,6 @@ func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
 	if err != nil {
 		return fmt.Errorf("invalid hex data: %w", err)
 	}
-
 	//内层
 	sp := SinkPayload{
 		Type:      "sink",
@@ -201,7 +200,6 @@ func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
 		Datalen:   len(raw), // 字节数
 		Data:      strings.ToUpper(normHex),
 	}
-
 	//外层
 	env := EdgexMessage{
 		ApiVersion:    "v3",
@@ -211,13 +209,11 @@ func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
 		Payload:       sp,
 		ContentType:   "application/json",
 	}
-
 	//序列化并发布
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)
 	}
-
 	token := client.Publish(topic, 0, false, body)
 	token.Wait()
 	return token.Error()

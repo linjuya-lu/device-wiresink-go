@@ -46,7 +46,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 			body := make([]byte, len(frame)-9)
 			copy(body, frame[7:len(frame)-2])
 			//错误响应
-			if CRC16(payload) != recvCRC {
+			if config.CRC16(payload) != recvCRC {
 				if fragInd == 0 {
 					switch packetType {
 					case 0: // 监测报文
@@ -77,9 +77,9 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 					SendDataStatus(sensorID, 0b011, 0xFF, byte(dataCount))
 				case 4, 5: // 控制报文与处理
 					handleFrameCtl(frame_ctl)
-					if config.ResourcesFlag {
-						cb(deviceName, "asyncData", config.Resources1)
-						config.ResourcesFlag = false
+					if config.ControlResourcesFlag {
+						cb(deviceName, "asyncData", config.ControlResources)
+						config.ControlResourcesFlag = false
 					}
 					continue
 				default:
@@ -191,7 +191,7 @@ func SendDataStatus(sensorKey string, packetType byte, dataStatus byte, dataLen 
 	packet = append(packet, header)
 	packet = append(packet, dataStatus)
 	//CRC16
-	crc := CRC16(packet)
+	crc := config.CRC16(packet)
 	packet = append(packet, byte(crc>>8), byte(crc&0xFF))
 	//发送
 	relay.SendFrame(sensorKey, packet)

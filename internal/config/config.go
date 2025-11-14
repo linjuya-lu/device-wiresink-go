@@ -4,12 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"sync"
-)
-
-var (
-	Mu        sync.RWMutex
-	ValuesMap = make(map[string]map[string]any) //设备 → (资源 → 值)
 )
 
 // 默认值转化
@@ -75,7 +69,6 @@ func GetDeviceValues(deviceName string) (map[string]any, bool) {
 	if !ok {
 		return nil, false
 	}
-
 	copyMap := make(map[string]any, len(vals))
 	for k, v := range vals {
 		copyMap[k] = v

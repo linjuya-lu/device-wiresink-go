@@ -17,18 +17,37 @@ type ParamInfo struct {
 	Parse func([]byte) (any, error)
 }
 
-var paramMap = map[ParamKey]ParamInfo{
-	{0b000, 0b00000000001}: {parseFloat32},
-	{0b000, 0b00000001000}: {parseTopo},
+// 查询
+func GetParamInfo(key ParamKey) (ParamInfo, bool) {
+	paramMu.RLock()
+	defer paramMu.RUnlock()
+
+	info, ok := paramMap[key]
+	return info, ok
+}
+
+// 整表替换
+func ReplaceParamMap(newMap map[ParamKey]ParamInfo) {
+	paramMu.Lock()
+	defer paramMu.Unlock()
+	paramMap = newMap
 }
 
 func LookupParamInfo(paramType uint16) (ParamInfo, bool) {
 	feature := byte((paramType >> 11) & 0x07)
 	code := paramType & 0x7FF
-	fmt.Printf("TypeCode=0x%04X → Feature=%03b (0x%X), Code=%011b (0x%X)\n", paramType, feature, feature, code, code)
-
-	key := ParamKey{feature, code}
+	fmt.Printf(
+		"TypeCode=0x%04X → Feature=%03b (0x%X), Code=%011b (0x%X)\n",
+		paramType, feature, feature, code, code,
+	)
+	key := ParamKey{
+		FeatureBits: feature,
+		CodeBits:    code,
+	}
+	paramMu.RLock()
 	info, ok := paramMap[key]
+	paramMu.RUnlock()
+
 	return info, ok
 }
 
@@ -102,7 +121,7 @@ func parseInt16(data []byte) (any, error) {
 func parseTopo(data []byte) (any, error) {
 	n := len(data)
 
-	// 粗判6字节EID + , + state + , + type + , + 6字节parent
+	// 判断是否为节点
 	looksLikeNode := func(i int) bool {
 		if i+16 > n {
 			return false
@@ -111,7 +130,6 @@ func parseTopo(data []byte) (any, error) {
 			data[i+8] == 0x2C &&
 			data[i+10] == 0x2C
 	}
-
 	// 字节转字符串
 	toHex12 := func(b []byte) string {
 		const hexdigits = "0123456789ABCDEF"
@@ -123,7 +141,6 @@ func parseTopo(data []byte) (any, error) {
 		}
 		return string(dst)
 	}
-
 	// 找起点
 	i := 0
 	for i < n && !looksLikeNode(i) {
@@ -132,18 +149,15 @@ func parseTopo(data []byte) (any, error) {
 	if i >= n {
 		return nil, fmt.Errorf("未找到节点起点，数拓扑不符合约定")
 	}
-
 	// 解析所有节点
 	var entries []NodeTopology
 	for i < n {
 		if !looksLikeNode(i) {
 			break
 		}
-
 		// EID
 		eid := data[i : i+6]
 		i += 6
-
 		// ',' state ','
 		if i >= n || data[i] != 0x2C {
 			return nil, fmt.Errorf("节点缺少逗号分隔(1)")
@@ -159,7 +173,6 @@ func parseTopo(data []byte) (any, error) {
 			return nil, fmt.Errorf("节点缺少逗号分隔(2)")
 		}
 		i++
-
 		// type ','
 		if i >= n {
 			return nil, fmt.Errorf("节点缺少type字节")
@@ -183,7 +196,6 @@ func parseTopo(data []byte) (any, error) {
 			Type:   strconv.Itoa(int(typeByte)),
 			Parent: toHex12(parent),
 		})
-
 		// 本帧内节点分隔符：'$'
 		if i < n && data[i] == 0x24 { // '$'
 			i++
@@ -195,12 +207,10 @@ func parseTopo(data []byte) (any, error) {
 		}
 		break
 	}
-
 	// 合并
 	now := time.Now()
 	topoMu.Lock()
-
-	// 空闲超时：开始新一轮，自动清空
+	// 超时：开始新一轮，自动清空
 	if topoIdleTTL > 0 && !topoLastAt.IsZero() && now.Sub(topoLastAt) > topoIdleTTL {
 		TopoList = TopoList[:0]
 		topoIndex = make(map[string]int)

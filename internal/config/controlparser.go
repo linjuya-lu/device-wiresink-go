@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// LORA报文
+// 通用报文
 type Frame struct {
 	SensorID   string // EID
 	DataLen    byte   // 参量个数
@@ -60,19 +60,19 @@ func LookupResponseHandle(head uint8) (ResponseHandle, bool) {
 	return handle, ok
 }
 
-// ===================== 通用解析函数 =====================
+// ===================== 通用控制解析函数 =====================
 var (
-	Resources1         = make(map[string]any)
-	ResourcesFlag bool = false
+	ControlResources          = make(map[string]any)
+	ControlResourcesFlag bool = false
 )
 
 // 通用参数查询/设置
 func common_para_response(data []byte, frameCtl Frame) error {
 	idx := 0
 	parsed := 0
-	Resources1 = make(map[string]any)
+	ControlResources = make(map[string]any)
 
-	ResourcesFlag = false
+	ControlResourcesFlag = false
 	for parsed < int(frameCtl.DataLen) {
 		if idx+2 > len(data)-2 {
 			log.Printf("参数头越界 SensorID=%s，跳过本帧", frameCtl.SensorID)
@@ -82,8 +82,7 @@ func common_para_response(data []byte, frameCtl Frame) error {
 		idx += 2
 		paramType := head16 >> 2       // 14bit类型码
 		lenFlag := uint8(head16 & 0x3) // 2bit长度指示
-
-		// 真实数据长度
+		// 数据长度
 		var dataLen uint32
 		switch lenFlag {
 		case 0:
@@ -98,33 +97,43 @@ func common_para_response(data []byte, frameCtl Frame) error {
 			dataLen = uint32(data[idx])<<16 | uint32(data[idx+1])<<8 | uint32(data[idx+2])
 			idx += 3
 		}
-
-		// 越界校验
+		// 解析数据
 		if idx+int(dataLen) > len(data)-2 {
 			log.Printf("参数数据越界 SensorID=%s，跳过本帧", frameCtl.SensorID)
 			break
 		}
-
-		// 原始值字节
 		valBytes := data[idx : idx+int(dataLen)]
 		idx += int(dataLen)
-
 		deviceName, hasDevice := LookupDeviceName(frameCtl.SensorID)
 		if !hasDevice {
 			log.Printf("未知 SensorID=%s，跳过本帧", frameCtl.SensorID)
 			continue
 		}
-		// 解析数据
 		if info, ok := LookupParamInfo(paramType); ok {
 			val, err := info.Parse(valBytes)
+
+			key := ParamKey{
+				FeatureBits: uint8((paramType >> 11) & 0x07), // 3 位
+				CodeBits:    uint16(paramType & 0x07FF),      // 11 位
+			}
+			var resName string
+			if rn, ok := ParamEidGet(key, deviceName); ok {
+				resName = rn
+				fmt.Println("命中资源名：", resName)
+			} else {
+				fmt.Println("未找到绑定")
+				return nil
+			}
+			SetDeviceValue(deviceName, resName, val)
+			ControlResources[resName] = val
 			if err != nil {
-				log.Printf(" 参数 %s.%s 解析失败: %v", deviceName, "info.Name", err)
+				log.Printf(" 参数 %s.%s 解析失败: %v", deviceName, resName, err)
 			} else {
 				// 更新
-				SetDeviceValue(deviceName, "info.Name", val)
-				Resources1["info.Name"] = val
+				SetDeviceValue(deviceName, resName, val)
+				ControlResources[resName] = val
 
-				log.Printf("写入值 %s.%s = %v %s", deviceName, "info.Name", val, "info.Unit")
+				log.Printf("写入值 %s.%s = %v", deviceName, resName, val)
 			}
 		} else {
 			log.Printf("未找到参数类型信息 type=0x%X", paramType)
@@ -132,7 +141,7 @@ func common_para_response(data []byte, frameCtl Frame) error {
 
 		parsed++
 	}
-	ResourcesFlag = true
+	ControlResourcesFlag = true
 	return nil
 }
 

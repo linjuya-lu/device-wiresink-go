@@ -13,7 +13,6 @@ import (
 )
 
 func SendFrame(srcAddr string, payload []byte) {
-
 	hexStr := strings.ToUpper(hex.EncodeToString(payload))
 	const previewN = 256
 	if n := len(payload); n > previewN {
@@ -22,7 +21,6 @@ func SendFrame(srcAddr string, payload []byte) {
 	} else {
 		fmt.Printf("[tx] hex=%s", hexStr)
 	}
-
 	mqttclient.PublishSinkCommand(mqttclient.MqttClient, config.MqttTopicDown, srcAddr, hexStr)
 	fmt.Printf("已发布主题%s", config.MqttTopicDown)
 }
