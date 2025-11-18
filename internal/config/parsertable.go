@@ -120,7 +120,6 @@ func parseInt16(data []byte) (any, error) {
 // 拓扑解析并合并
 func parseTopo(data []byte) (any, error) {
 	n := len(data)
-
 	// 判断是否为节点
 	looksLikeNode := func(i int) bool {
 		if i+16 > n {
@@ -226,6 +225,5 @@ func parseTopo(data []byte) (any, error) {
 	}
 	snapshot := append([]NodeTopology(nil), TopoList...)
 	topoMu.Unlock()
-
 	return snapshot, nil
 }

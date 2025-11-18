@@ -56,18 +56,15 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 		return fmt.Errorf("excel open from %s error: %w", name, err)
 	}
 	defer f.Close()
-
 	// 第一张表
 	sheetName := f.GetSheetName(0)
 	if sheetName == "" {
 		return fmt.Errorf("excel(%s) has no sheets", name)
 	}
-
 	rows, err := f.GetRows(sheetName)
 	if err != nil {
 		return fmt.Errorf("read rows failed(%s): %w", name, err)
 	}
-
 	// 构建解析表
 	newParamMap := make(map[ParamKey]ParamInfo)
 	for i, row := range rows {
@@ -118,6 +115,5 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 	paramMu.Lock()
 	paramMap = newParamMap
 	paramMu.Unlock()
-
 	return nil
 }

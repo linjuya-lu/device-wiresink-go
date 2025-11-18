@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -70,24 +69,8 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 }
 
 func (d *WireSinkDriver) Start() error {
-	if err := d.sdk.AddCustomRoute(
-		"/custom/firmware-upgrade",
-		interfaces.Unauthenticated,
-		d.handleFirmwareUpgrade,
-		http.MethodPost,
-	); err != nil {
-		return fmt.Errorf("register firmware upgrade route failed: %w", err)
-	}
-	//配置文件下发
-	if err := d.sdk.AddCustomRoute(
-		"/custom/load-param-map",
-		interfaces.Unauthenticated,
-		d.handleLoadParamMap,
-		http.MethodPost,
-	); err != nil {
-		return fmt.Errorf("register route failed: %w", err)
-	}
-
+	// 初始化API
+	d.addCustomRoutes()
 	if err := InitDeviceValues(d.sdk); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
