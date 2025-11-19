@@ -122,7 +122,8 @@ func common_para_response(data []byte, frameCtl Frame) error {
 				fmt.Println("命中资源名：", resName)
 			} else {
 				fmt.Println("未找到绑定")
-				return nil
+				continue
+				// return nil
 			}
 			SetDeviceValue(deviceName, resName, val)
 			ControlResources[resName] = val

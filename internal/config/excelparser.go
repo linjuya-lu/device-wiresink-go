@@ -20,13 +20,14 @@ type TypeKey struct {
 }
 
 var typeMap = map[TypeKey]TypeInfo{
-	{"4", "浮点型"}:     {"float32", parseFloat32},
-	{"4", "无符号整型"}:   {"uint32", parseUint32},
-	{"2", "无符号整型"}:   {"uint16", parseUint16},
-	{"1", "整型"}:      {"uint8", parseUint8},
-	{"2", "整型"}:      {"uint16", parseInt16},
-	{"2*N", "有符号整型"}: {"uint16", parseUint16Array},
-	{"N", "浮点型"}:     {"float32", parsefloat32Array},
+	{"4", "浮点型"}:        {"float32", parseFloat32},
+	{"4", "无符号整型"}:      {"uint32", parseUint32},
+	{"2", "无符号整型"}:      {"uint16", parseUint16},
+	{"1", "整型"}:         {"uint8", parseUint8},
+	{"2", "整型"}:         {"uint16", parseInt16},
+	{"2*N", "有符号整型"}:    {"uint16", parseUint16Array},
+	{"N", "浮点型"}:        {"float32", parsefloat32Array},
+	{"1", "1、正常；2、异常；"}: {"uint8", parseUint8},
 }
 
 // 数据类型匹配

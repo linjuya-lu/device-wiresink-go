@@ -264,6 +264,7 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 	//更新EID
 	if eid, ok := extractEID(protocols); ok {
 		config.UpdateMapping(eid, deviceName)
+		d.lc.Infof("设备 %s 使用 LoRa.eid=%s 建立映射成功", deviceName, eid)
 	} else {
 		d.lc.Warnf("设备 %s 未提供 LoRa.eid", deviceName)
 	}
@@ -295,19 +296,19 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 				typeStr = strings.TrimSpace(fmt.Sprint(v))
 			}
 		}
+		d.lc.Infof("paramFeatures: %s paramType: %s", featStr, typeStr)
 		if featStr == "" || typeStr == "" {
-			d.lc.Debugf("资源 %s 未配置 attributes.paramFeatures/paramType，跳过登记", resName)
+			d.lc.Infof("资源 %s 未配置 attributes.paramFeatures/paramType，跳过登记", resName)
 			continue
 		}
-		if len(featStr) != 3 || len(typeStr) != 11 || !isBin(featStr) || !isBin(typeStr) {
-			d.lc.Warnf("资源 %s 的二进制长度/字符非法: paramFeatures=%q paramType=%q，跳过登记", resName, featStr, typeStr)
+		if !isBin(featStr) || !isBin(typeStr) {
+			d.lc.Infof("资源 %s 的二进制长度/字符非法: paramFeatures=%q paramType=%q，跳过登记", resName, featStr, typeStr)
 			continue
 		}
-
 		featureBits, err1 := parseBin8(featStr)
 		typeBits, err2 := parseBin16(typeStr)
 		if err1 != nil || err2 != nil {
-			d.lc.Warnf("资源 %s 的二进制解析失败: %v %v，跳过登记", resName, err1, err2)
+			d.lc.Infof("资源 %s 的二进制解析失败: %v %v，跳过登记", resName, err1, err2)
 			continue
 		}
 		key := config.ParamKey{
@@ -315,10 +316,9 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 			CodeBits:    typeBits,
 		}
 		config.ParamEidUpdate(key, deviceName, resName)
-		d.lc.Debugf("ParamEidRegistry 登记: dev=%s res=%s -> Feature=%03b Code=%011b",
+		d.lc.Infof("ParamEidRegistry 登记: dev=%s res=%s -> Feature=%03b Code=%011b",
 			deviceName, resName, featureBits, typeBits)
 	}
-
 	d.lc.Infof("刷新设备 %s 的资源值", deviceName)
 	return nil
 }

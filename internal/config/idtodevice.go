@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"sync"
 )
 
@@ -35,9 +36,6 @@ func DeleteMapping(sensorID string) error {
 func UpdateMapping(sensorID, newDeviceName string) error {
 	mu1.Lock()
 	defer mu1.Unlock()
-	if _, ok := SensorIDToDeviceName[sensorID]; !ok {
-		return fmt.Errorf("无EID %s", sensorID)
-	}
 	SensorIDToDeviceName[sensorID] = newDeviceName
 	fmt.Printf("更新EID: %s -> %s\n", sensorID, newDeviceName)
 	return nil
@@ -47,6 +45,7 @@ func UpdateMapping(sensorID, newDeviceName string) error {
 func LookupDeviceName(sensorID string) (deviceName string, ok bool) {
 	mu1.RLock()
 	defer mu1.RUnlock()
+	log.Printf("[DEBUG] SensorIDToDeviceName: %#v", SensorIDToDeviceName)
 	deviceName, ok = SensorIDToDeviceName[sensorID]
 	return
 }

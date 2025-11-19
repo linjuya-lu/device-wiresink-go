@@ -100,38 +100,31 @@ func decodeHexFlexible(s string) ([]byte, error) {
 }
 
 func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
-	// 基本元信息
 	log.Printf("[MQTT] topic=%q qos=%d retained=%v dup=%v payloadLen=%d",
 		msg.Topic(), msg.Qos(), msg.Retained(), msg.Duplicate(), len(msg.Payload()))
-
-	// 解外层
+	// 外层
 	var env EdgexMessage
 	if err := json.Unmarshal(msg.Payload(), &env); err != nil {
 		log.Printf("解析 EdgexMessage 失败: %v; payload=%s", err, string(msg.Payload()))
 		return
 	}
 	log.Printf("[OUTER] EdgexMessage: %+v", env)
-
 	pb, err := payloadBytes(env.Payload)
 	if err != nil || len(pb) == 0 {
 		log.Printf("读取内层 payload 失败: %v (len=%d)", err, len(pb))
 		return
 	}
-	log.Printf("[OUTER] inner payload bytes len=%d preview=%q", len(pb), string(pb))
-
-	// 解内层
+	// 内层
 	var sp SinkPayload
 	if err := json.Unmarshal(pb, &sp); err != nil {
 		log.Printf("解析 SinkPayload 失败: %v; payload=%s", err, string(pb))
 		return
 	}
 	log.Printf("[INNER] SinkPayload: %+v", sp)
-
 	if sp.Data == "" {
 		log.Printf("数据帧值为空")
 		return
 	}
-
 	// 十六进制→字节序列
 	raw, err := decodeHexFlexible(sp.Data)
 	if err != nil {
@@ -141,8 +134,6 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	if sp.Datalen >= 0 && sp.Datalen != len(raw) {
 		log.Printf("数据长度(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
 	}
-	log.Printf("[RAW] bytes len=%d hex=%s", len(raw), strings.ToUpper(hex.EncodeToString(raw)))
-
 	// 按类型分流
 	t := strings.ToLower(strings.TrimSpace(sp.Type))
 	switch t {
@@ -153,10 +144,10 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 		default:
 			log.Printf("UpgradeRawDataCh 已满，丢弃 len=%d", len(raw))
 		}
-	case "", "sink": // 网关自身参数
+	case "", "sink", "sensor":
 		fallthrough
 	default:
-		if t != "" && t != "sink" {
+		if t != "" && t != "sink" && t != "sensor" {
 			log.Printf("未识别 Type=%q，按常规通道处理", sp.Type)
 		}
 		select {

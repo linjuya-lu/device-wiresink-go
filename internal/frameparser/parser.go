@@ -127,19 +127,17 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 						FeatureBits: uint8((paramType >> 11) & 0x07), // 3 位
 						CodeBits:    uint16(paramType & 0x07FF),      // 11 位
 					}
-
 					var resName string
 					if rn, ok := config.ParamEidGet(key, deviceName); ok {
 						resName = rn
 						fmt.Println("命中资源名：", resName)
 					} else {
-						fmt.Println("未找到绑定")
-						return // 或者 continue / 跳过后续逻辑
+						fmt.Print("未找到绑定", deviceName)
+						// return
+						continue
 					}
-
 					config.SetDeviceValue(deviceName, resName, val)
 					resourceValues[resName] = val
-
 					if err != nil {
 						log.Printf("参数 %s.%s 解析失败: %v", deviceName, resName, err)
 					} else {

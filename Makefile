@@ -1,4 +1,4 @@
-.PHONY: build test unittest lint clean docker
+.PHONY: build clean docker
 
 # change the following boolean flag to enable or disable the Full RELRO (RELocation Read Only) for linux ELF (Executable and Linkable Format) binaries
 ENABLE_FULL_RELRO=true
@@ -8,7 +8,7 @@ ENABLE_PIE=true
 MICROSERVICES=cmd/device-wiresink
 .PHONY: $(MICROSERVICES)
 
-# ========= 架构配置（支持命令行覆盖：make ARCH=arm64） =========
+
 ARCH ?= aarch64
 
 # 规范化 ARCH -> GOOS/GOARCH/GOARM
@@ -55,15 +55,6 @@ endif
 
 build: $(MICROSERVICES)
 
-build-nats:
-	$(MAKE) -e ADD_BUILD_TAGS=include_nats_messaging build
-
-build-noziti:
-	$(MAKE) -e ADD_BUILD_TAGS=no_openziti build
-
-tidy:
-	go mod tidy
-
 cmd/device-wiresink:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) CGO_ENABLED=0 \
 	go build -tags "$(ADD_BUILD_TAGS)" $(GOFLAGS) -o $@ ./cmd
@@ -90,10 +81,3 @@ docker_device_wiresink_go_arm64:
 		-t edgexfoundry/device-wiresink:$(GIT_SHA)-arm64 \
 		-t edgexfoundry/device-wiresink:$(VERSION)-dev-arm64 \
 		--load .
-
-vendor:
-	CGO_ENABLED=0 go mod vendor
-
-# 打印当前目标架构
-print-arch:
-	@echo "ARCH=$(ARCH)  ->  GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM)"
