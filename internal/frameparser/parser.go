@@ -120,6 +120,17 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				// 解析数据
 				valBytes := frame[idx : idx+int(dataLen)]
 				idx += int(dataLen)
+				// 🔹 特殊处理：拓扑参数（feature=000, code=00000010000 -> paramType=0x0010）
+				if paramType == 0x0010 {
+					if topo, err := config.ParseTopo(valBytes); err != nil {
+						log.Printf("拓扑参数解析失败 SensorID=%s type=0x%X: %v", sensorID, paramType, err)
+					} else {
+						log.Printf("拓扑参数解析成功 SensorID=%s type=0x%X 结果=%v", sensorID, paramType, topo)
+					}
+					parsed++
+					continue
+				}
+
 				if info, ok := config.LookupParamInfo(paramType); ok {
 					val, err := info.Parse(valBytes)
 

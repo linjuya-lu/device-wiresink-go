@@ -113,6 +113,12 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 			Parse: ti.Parse,
 		}
 	}
+	//拓扑解析
+	defaultKey := ParamKey{
+		FeatureBits: 0b000,
+		CodeBits:    0b00000010000,
+	}
+	newParamMap[defaultKey] = ParamInfo{Parse: ParseTopo}
 	paramMu.Lock()
 	paramMap = newParamMap
 	paramMu.Unlock()

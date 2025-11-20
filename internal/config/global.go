@@ -11,7 +11,7 @@ const (
 	UpgradeTCPPort uint32 = 12345                                        // TCP端口
 	EidStr                = "238A0841D828"                               // 模块EID
 	GatewayEID            = "238A0841D828"                               // 汇聚网关EID
-	BrokerURL             = "tcp://172.16.19.91:1883"                    //MQTT代理
+	BrokerURL             = "tcp://172.16.19.193:1883"                   //MQTT代理
 	MqttTopicUp           = "edgex/service/request/device-wiresink/up"   // 上行
 	MqttTopicDown         = "edgex/server/response/device-wiresink/down" // 下行
 	DevicesYAML           = "../cmd/res/devices/devices.yaml"
@@ -29,7 +29,7 @@ var (
 	paramMu  sync.RWMutex
 	paramMap = map[ParamKey]ParamInfo{
 		{0b000, 0b00000000001}: {parseFloat32},
-		{0b000, 0b00000001000}: {parseTopo},
+		{0b000, 0b00000010000}: {ParseTopo},
 	}
 )
 
@@ -73,3 +73,11 @@ var (
 	AckReceived int
 	Mu3         sync.Mutex
 )
+
+// 节点拓扑
+type NodeTopology struct {
+	EID    string `json:"eid"`    // 节点地址
+	Type   string `json:"type"`   // 节点类型：0=微功率，1=汇聚，2=低功耗，4=接入
+	State  string `json:"state"`  // 在线状态  1=在线，0=离线
+	Parent string `json:"parent"` // 父节点地址
+}

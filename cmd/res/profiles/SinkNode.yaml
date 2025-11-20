@@ -207,14 +207,6 @@ deviceResources:
       readWrite: "R"       
       units: ""
       defaultValue: "0"   
-  - name: "topo"   # 路由信息 <EID> <EID TYPE> <EID STA> <EID PARANT>
-    isHidden: false
-    description: "路由信息"
-    properties:
-      valueType: "Object"    
-      readWrite: "R"        
-      units: ""            
-      defaultValue: "{}"  
   - name: "upgradeStatus"
     isHidden: false
     description: "固件升级状态"

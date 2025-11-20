@@ -17,7 +17,7 @@ deviceResources:
       scale: 1
     attributes:
       paramFeatures: "000"
-      paramType: "00000000101"
+      paramType: "00000001000"
   - name: "HumiAmbient"
     isHidden: true
     description: "湿度值"
@@ -30,7 +30,7 @@ deviceResources:
       scale: 1
     attributes:
       paramFeatures: "001"
-      paramType: "00000111"
+      paramType: "00001001"
   - name: "BatVolt"
     isHidden: true
     description: "供电电压"
@@ -43,7 +43,7 @@ deviceResources:
       scale: 1
     attributes:
       paramFeatures: "000"
-      paramType: "00000011110"
+      paramType: "00000011"
   - name: "BatteryRemaining"
     isHidden: true
     description: "电池电量"
@@ -56,7 +56,7 @@ deviceResources:
       scale: 1
     attributes:
       paramFeatures: "000"
-      paramType: "00000011101"
+      paramType: "00000010"
   - name: "state"
     isHidden: true
     description: "传感器运行状态"

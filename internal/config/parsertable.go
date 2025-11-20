@@ -118,7 +118,7 @@ func parseInt16(data []byte) (any, error) {
 }
 
 // 拓扑解析并合并
-func parseTopo(data []byte) (any, error) {
+func ParseTopo(data []byte) (any, error) {
 	n := len(data)
 	// 判断是否为节点
 	looksLikeNode := func(i int) bool {
