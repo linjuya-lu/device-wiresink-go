@@ -39,7 +39,6 @@ func LookupTypeInfo(length string, cn string) (TypeInfo, bool) {
 	return ti, ok
 }
 
-// 字符串转整数
 func ParseBinToUint8(s string) (uint8, error) {
 	v, err := strconv.ParseUint(strings.TrimSpace(s), 2, 8)
 	return uint8(v), err
@@ -69,7 +68,8 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 	// 构建解析表
 	newParamMap := make(map[ParamKey]ParamInfo)
 	for i, row := range rows {
-		if i == 0 { // 跳过表头
+		// 跳过表头
+		if i == 0 {
 			continue
 		}
 		if len(row) == 0 {

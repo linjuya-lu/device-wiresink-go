@@ -3,6 +3,7 @@ package driver
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/edgexfoundry/device-sdk-go/v4/pkg/interfaces"
 	"github.com/labstack/echo/v4"
@@ -69,6 +70,34 @@ func (d *WireSinkDriver) addCustomRoutes() error {
 
 func (d *WireSinkDriver) handleGetTopology(c echo.Context) error {
 	topo := config.GetTopoList()
+
+	const (
+		targetEID    = "238A08411011"
+		expectType   = "4"
+		expectState  = "1"
+		expectParent = "FFFFFFFFFFFF"
+	)
+
+	found := false
+	for i := range topo {
+		if topo[i].EID == targetEID &&
+			topo[i].Type == expectType &&
+			topo[i].State == expectState &&
+			strings.ToUpper(topo[i].Parent) == expectParent {
+			// 找到了就把 parent 改成汇聚网关 EID
+			topo[i].Parent = config.GatewayEID // "238A0841D828"
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		d.lc.Warnf(
+			"handleGetTopology: 未找到 eid=%s, type=%s, state=%s, parent=%s 的节点",
+			targetEID, expectType, expectState, expectParent,
+		)
+	}
+
 	d.lc.Infof("返回拓扑列表，数量=%d", len(topo))
 	return c.JSON(http.StatusOK, topo)
 }

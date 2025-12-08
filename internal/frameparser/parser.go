@@ -12,17 +12,12 @@ import (
 	"github.com/linjuya-lu/device-wiresink-go-arm/internal/relay"
 )
 
-// deviceName: 设备名
-// sourceName: 资源名
-// resourceNames: 数据值列表
 type CallbackFunc func(deviceName, sourceName string, values map[string]any)
 
-// LORA协议解析
 func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 	go func() {
 		for frame := range frameCh {
 			fmt.Printf("Received frame (%d bytes): % X\n", len(frame), frame)
-			// 校验
 			if len(frame) < 9 {
 				continue
 			}
@@ -87,7 +82,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				}
 			} else {
 			}
-			//正常业务数据
+			//业务数据
 			idx := 7
 			parsed := 0
 			resourceValues := make(map[string]any)
@@ -100,8 +95,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				idx += 2
 				paramType := head16 >> 2       // 参量类型
 				lenFlag := uint8(head16 & 0x3) // 数据长度指示
-				// 数据长度
-				var dataLen uint32
+				var dataLen uint32             // 数据长度
 				switch lenFlag {
 				case 0:
 					dataLen = 4
@@ -120,7 +114,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				// 解析数据
 				valBytes := frame[idx : idx+int(dataLen)]
 				idx += int(dataLen)
-				// 🔹 特殊处理：拓扑参数（feature=000, code=00000010000 -> paramType=0x0010）
+				// 特殊处理：拓扑参数（feature=000, code=00000010000 -> paramType=0x0010）
 				if paramType == 0x0010 {
 					if topo, err := config.ParseTopo(valBytes); err != nil {
 						log.Printf("拓扑参数解析失败 SensorID=%s type=0x%X: %v", sensorID, paramType, err)
@@ -144,7 +138,6 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 						fmt.Println("命中资源名：", resName)
 					} else {
 						fmt.Print("未找到绑定", deviceName)
-						// return
 						continue
 					}
 					config.SetDeviceValue(deviceName, resName, val)
@@ -164,11 +157,8 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				}
 				parsed++
 			}
-			log.Printf("[DEBUG] parsed=%d dataCount=%d len(resourceValues)=%d cb=%v",
+			log.Printf("[解析] parsed=%d dataCount=%d len(resourceValues)=%d cb=%v",
 				parsed, dataCount, len(resourceValues), cb != nil)
-
-			// 解析完成，调用回调
-			fmt.Printf("cb=%v, len(resourceValues)=%d\n", cb, len(resourceValues))
 
 			if cb != nil && len(resourceValues) > 0 {
 				cb(deviceName, "asyncData", resourceValues)

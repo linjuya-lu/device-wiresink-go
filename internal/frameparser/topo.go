@@ -18,19 +18,19 @@ func BuildMonitoringDataQueryFrame1(sensorID [6]byte) ([]byte, error) {
 		ctrlType   = 0x02
 		dataParams = 0x0F
 	)
-	// EID
+
 	buf := make([]byte, 0, 6+1+1+2)
 	buf = append(buf, sensorID[:]...)
-	// 头
+
 	head := byte((dataParams&0x0F)<<4) |
 		byte((fragInd&0x01)<<3) |
 		byte(packetType&0x07)
 	buf = append(buf, head)
-	// 控制类型
+
 	ctrlByte := byte((dataParams&0x7F)<<1) |
 		byte(requestSetFlag&0x01)
 	buf = append(buf, ctrlByte)
-	// 校验
+
 	crc := config.CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
@@ -47,15 +47,15 @@ func BuildGeneralParamQueryFrame(sensorID [6]byte, paramType14 uint16) ([]byte, 
 
 	buf := make([]byte, 0, 6+1+1+2+2)
 	buf = append(buf, sensorID[:]...)
-	// 头
+
 	head := byte((dataCount&0x0F)<<4) | byte((fragInd&0x01)<<3) | byte(packetType&0x07)
 	buf = append(buf, head)
-	// 控制类型
+
 	ctrlByte := byte((ctrlTypeMonitor&0x7F)<<1) | byte(requestSetFlag&0x01)
 	buf = append(buf, ctrlByte)
 	// 参数列表：固定为 0x20 0x00
 	buf = append(buf, 0x20, 0x00)
-	// CRC16
+
 	crc := config.CRC16(buf)
 	var crcB [2]byte
 	binary.BigEndian.PutUint16(crcB[:], crc)

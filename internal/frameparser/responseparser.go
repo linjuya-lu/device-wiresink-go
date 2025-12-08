@@ -13,7 +13,7 @@ func handleFrameCtl(frameCtl config.Frame) {
 		log.Printf("控制帧长度不足，错误")
 		return
 	}
-	// 解析
+
 	head := raw[0]
 	if handle, ok := config.LookupResponseHandle(head); ok {
 		if err := handle.Parse(raw[1:], frameCtl); err != nil {

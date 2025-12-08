@@ -6,7 +6,6 @@ import (
 	"strconv"
 )
 
-// 默认值转化
 func ParseDefaultValue(valStr, vt string) any {
 	switch vt {
 	case "Float32":
@@ -39,7 +38,6 @@ func ParseDefaultValue(valStr, vt string) any {
 	return valStr
 }
 
-// 写入资源
 func SetDeviceValue(deviceName, resourceName string, value any) {
 	Mu.Lock()
 	defer Mu.Unlock()
@@ -49,7 +47,6 @@ func SetDeviceValue(deviceName, resourceName string, value any) {
 	ValuesMap[deviceName][resourceName] = value
 }
 
-// 获取资源
 func GetDeviceValue(deviceName, resourceName string) (any, bool) {
 	Mu.RLock()
 	defer Mu.RUnlock()
@@ -61,7 +58,6 @@ func GetDeviceValue(deviceName, resourceName string) (any, bool) {
 	return value, exists
 }
 
-// 获取所有资源
 func GetDeviceValues(deviceName string) (map[string]any, bool) {
 	Mu.RLock()
 	defer Mu.RUnlock()
@@ -76,7 +72,6 @@ func GetDeviceValues(deviceName string) (map[string]any, bool) {
 	return copyMap, true
 }
 
-// 更新资源
 func DeviceInit(deviceName, resourceName, defaultValue, valueType string) error {
 	Mu.Lock()
 	defer Mu.Unlock()
@@ -88,7 +83,6 @@ func DeviceInit(deviceName, resourceName, defaultValue, valueType string) error 
 	return nil
 }
 
-// 删除资源
 func DeleteDeviceValues(deviceName string) error {
 	Mu.Lock()
 	defer Mu.Unlock()

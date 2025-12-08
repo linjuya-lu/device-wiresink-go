@@ -15,14 +15,12 @@ var (
 	ParamEidMap = make(map[ParamKeyDevice]string)
 )
 
-// 新增
 func ParamEidAdd(par ParamKey, deviceName, resourceName string) {
 	ParamEidMu.Lock()
 	ParamEidMap[ParamKeyDevice{Key: par, DeviceName: deviceName}] = resourceName
 	ParamEidMu.Unlock()
 }
 
-// 删除
 func ParamEidDelete(par ParamKey, deviceName string) error {
 	ParamEidMu.Lock()
 	defer ParamEidMu.Unlock()
@@ -34,7 +32,6 @@ func ParamEidDelete(par ParamKey, deviceName string) error {
 	return nil
 }
 
-// 更新
 func ParamEidUpdate(par ParamKey, deviceName, resourceName string) error {
 	ParamEidMu.Lock()
 	defer ParamEidMu.Unlock()
@@ -76,7 +73,6 @@ func ParamEidSnapshot() map[ParamKeyDevice]string {
 	return cp
 }
 
-// 清空全部绑定
 func ParamEidClear() {
 	ParamEidMu.Lock()
 	ParamEidMap = make(map[ParamKeyDevice]string)

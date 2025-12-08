@@ -74,7 +74,7 @@ var (
 	Mu3         sync.Mutex
 )
 
-// 节点拓扑
+// 拓扑节点
 type NodeTopology struct {
 	EID    string `json:"eid"`    // 节点地址
 	Type   string `json:"type"`   // 节点类型：0=微功率，1=汇聚，2=低功耗，4=接入

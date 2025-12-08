@@ -20,7 +20,6 @@ func AddMapping(sensorID, deviceName string) {
 	fmt.Printf("添加EID: %s -> %s\n", sensorID, deviceName)
 }
 
-// 删除EID
 func DeleteMapping(sensorID string) error {
 	mu1.Lock()
 	defer mu1.Unlock()
@@ -41,7 +40,6 @@ func UpdateMapping(sensorID, newDeviceName string) error {
 	return nil
 }
 
-// 取设备名
 func LookupDeviceName(sensorID string) (deviceName string, ok bool) {
 	mu1.RLock()
 	defer mu1.RUnlock()

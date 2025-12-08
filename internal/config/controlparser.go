@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// 通用报文
 type Frame struct {
 	SensorID   string // EID
 	DataLen    byte   // 参量个数

@@ -14,16 +14,16 @@ func BuildMonitoringDataQueryFrame(sensorID [6]byte) ([]byte, error) {
 	)
 	buf := make([]byte, 0, 6+1+1+2)
 	buf = append(buf, sensorID[:]...)
-	//head：DataLen(4) | FragInd(1) | PacketType(3)
+
 	head := byte((dataParams&0x0F)<<4) |
 		byte((fragInd&0x01)<<3) |
 		byte(packetType&0x07)
 	buf = append(buf, head)
-	//ctrlByte：CtrlType(7) | RequestSetFlag(1)
+
 	ctrlByte := byte((dataParams&0x7F)<<1) |
 		byte(requestSetFlag&0x01)
 	buf = append(buf, ctrlByte)
-	//CRC16
+
 	crc := config.CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
