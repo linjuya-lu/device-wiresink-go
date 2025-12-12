@@ -14,8 +14,8 @@ import (
 
 var (
 	MqttClient       mqtt.Client
-	SinkRawDataCh    = make(chan []byte, 128) // 网关自身参数
-	UpgradeRawDataCh = make(chan []byte, 128) // 升级报文
+	SinkRawDataCh    = make(chan []byte, 32) // 网关自身参数
+	UpgradeRawDataCh = make(chan []byte, 32) // 升级报文
 )
 
 // MQTT初始化
@@ -100,8 +100,10 @@ func decodeHexFlexible(s string) ([]byte, error) {
 }
 
 func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
-	log.Printf("[MQTT] topic=%q qos=%d retained=%v dup=%v payloadLen=%d",
-		msg.Topic(), msg.Qos(), msg.Retained(), msg.Duplicate(), len(msg.Payload()))
+	log.Printf("[RAW MQTT] topic=%q qos=%d retained=%v dup=%v len=%d\npayload=%s",
+		msg.Topic(), msg.Qos(), msg.Retained(), msg.Duplicate(),
+		len(msg.Payload()), string(msg.Payload()))
+
 	// 外层
 	var env EdgexMessage
 	if err := json.Unmarshal(msg.Payload(), &env); err != nil {
@@ -134,13 +136,13 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	if sp.Datalen >= 0 && sp.Datalen != len(raw) {
 		log.Printf("数据长度(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
 	}
+
 	// 按类型分流
 	t := strings.ToLower(strings.TrimSpace(sp.Type))
 	switch t {
-	case "update": // 升级
+	case "update":
 		select {
 		case UpgradeRawDataCh <- raw:
-			log.Printf("[DISPATCH] → UpgradeRawDataCh len=%d", len(raw))
 		default:
 			log.Printf("UpgradeRawDataCh 已满，丢弃 len=%d", len(raw))
 		}
@@ -152,14 +154,13 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 		}
 		select {
 		case SinkRawDataCh <- raw:
-			log.Printf("[DISPATCH] → SinkRawDataCh len=%d", len(raw))
 		default:
 			log.Printf("SinkRawDataCh 已满，丢弃 len=%d", len(raw))
 		}
 	}
 }
 
-// 预处理：去空白与常见分隔符、去 0x 前缀；确保偶数长度；
+// 去空白与常见分隔符、去 0x 前缀；确保偶数长度；
 func normalizeHex(s string) (string, []byte, error) {
 	r := strings.NewReplacer(
 		" ", "", "\t", "", "\n", "", "\r", "",

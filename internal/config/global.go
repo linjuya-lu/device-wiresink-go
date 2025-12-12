@@ -29,7 +29,7 @@ var (
 	paramMu  sync.RWMutex
 	paramMap = map[ParamKey]ParamInfo{
 		{0b000, 0b00000000001}: {parseFloat32},
-		{0b000, 0b00000010000}: {ParseTopo},
+		{0b000, 0b0000001000}:  {ParseTopo},
 	}
 )
 

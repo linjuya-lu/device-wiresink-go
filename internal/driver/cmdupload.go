@@ -58,6 +58,4 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 		CommandValues: cvs,
 	}
 	d.asyncCh <- asyncValues
-	d.lc.Infof("异步值上传: 设备=%s 通道=%s 数量=%d",
-		deviceName, sourceName, len(cvs))
 }

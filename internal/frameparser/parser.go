@@ -115,7 +115,7 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				valBytes := frame[idx : idx+int(dataLen)]
 				idx += int(dataLen)
 				// 特殊处理：拓扑参数（feature=000, code=00000010000 -> paramType=0x0010）
-				if paramType == 0x0010 {
+				if paramType == 0x0008 {
 					if topo, err := config.ParseTopo(valBytes); err != nil {
 						log.Printf("拓扑参数解析失败 SensorID=%s type=0x%X: %v", sensorID, paramType, err)
 					} else {
@@ -157,8 +157,6 @@ func StartParser(frameCh <-chan []byte, cb CallbackFunc) {
 				}
 				parsed++
 			}
-			log.Printf("[解析] parsed=%d dataCount=%d len(resourceValues)=%d cb=%v",
-				parsed, dataCount, len(resourceValues), cb != nil)
 
 			if cb != nil && len(resourceValues) > 0 {
 				cb(deviceName, "asyncData", resourceValues)
