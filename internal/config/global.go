@@ -18,13 +18,11 @@ const (
 	ProfilesDir           = "../cmd/res/profiles"
 )
 
-// 上传表
 var (
 	Mu        sync.RWMutex
-	ValuesMap = make(map[string]map[string]any) //设备 → (资源 → 值)
+	ValuesMap = make(map[string]map[string]any) //设备→(资源→值)
 )
 
-// 解析表
 var (
 	paramMu  sync.RWMutex
 	paramMap = map[ParamKey]ParamInfo{
@@ -39,12 +37,11 @@ var (
 	LastDataTsMap = make(map[string]int64) // 设备数据时间戳
 )
 
-// 路由表
 var (
 	TopoList    []NodeTopology
-	topoIndex   = map[string]int{} // EID -> index
+	topoIndex   = map[string]int{} //EID -> index
 	topoMu      sync.RWMutex
-	topoLastAt  time.Time           // 最近合并时间
+	topoLastAt  time.Time           // 获取时间
 	topoIdleTTL = 600 * time.Second // 超过这个空闲视为新一轮
 )
 
@@ -59,7 +56,6 @@ func ClearTopo() (prev int) {
 	return
 }
 
-// 获取路由表
 func GetTopoList() []NodeTopology {
 	topoMu.RLock()
 	defer topoMu.RUnlock()
@@ -76,8 +72,9 @@ var (
 
 // 拓扑节点
 type NodeTopology struct {
-	EID    string `json:"eid"`    // 节点地址
-	Type   string `json:"type"`   // 节点类型：0=微功率，1=汇聚，2=低功耗，4=接入
-	State  string `json:"state"`  // 在线状态  1=在线，0=离线
-	Parent string `json:"parent"` // 父节点地址
+	EID    string `json:"eid"`            // 节点地址
+	Type   string `json:"type"`           // 节点类型：0=微功率，1=汇聚，2=低功耗，4=接入
+	State  string `json:"state"`          // 在线状态  1=在线，0=离线
+	Parent string `json:"parent"`         // 父节点地址
+	Desc   string `json:"desc,omitempty"` // 节点描述：只在“有映射 + 有description”时才填
 }

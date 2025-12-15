@@ -117,10 +117,10 @@ func parseInt16(data []byte) (any, error) {
 	return val, nil
 }
 
-// 拓扑解析并合并
+// 拓扑解析
 func ParseTopo(data []byte) (any, error) {
 	n := len(data)
-	// 判断是否为节点
+	// 是否为节点
 	looksLikeNode := func(i int) bool {
 		if i+16 > n {
 			return false
@@ -154,13 +154,10 @@ func ParseTopo(data []byte) (any, error) {
 		if !looksLikeNode(i) {
 			break
 		}
-		// EID
-		eid := data[i : i+6]
+		eid := data[i : i+6] // EID
 		i += 6
-		// ',' state ','
 		if i >= n || data[i] != 0x2C {
 			return nil, fmt.Errorf("节点缺少逗号分隔(1)")
-			//			TODO:EID STATE关系映射
 		}
 		i++
 		if i >= n {
@@ -172,7 +169,6 @@ func ParseTopo(data []byte) (any, error) {
 			return nil, fmt.Errorf("节点缺少逗号分隔(2)")
 		}
 		i++
-		// type ','
 		if i >= n {
 			return nil, fmt.Errorf("节点缺少type字节")
 		}
@@ -182,21 +178,19 @@ func ParseTopo(data []byte) (any, error) {
 			return nil, fmt.Errorf("节点缺少逗号分隔(3)")
 		}
 		i++
-		// parent(6)
 		if i+6 > n {
 			return nil, fmt.Errorf("节点缺少父EID字节")
 		}
 		parent := data[i : i+6]
 		i += 6
-
 		entries = append(entries, NodeTopology{
 			EID:    toHex12(eid),
 			State:  strconv.Itoa(int(stateByte)),
 			Type:   strconv.Itoa(int(typeByte)),
 			Parent: toHex12(parent),
 		})
-		// 本帧内节点分隔符：'$'
-		if i < n && data[i] == 0x24 { // '$'
+		// 帧内节点分隔符：'$'
+		if i < n && data[i] == 0x24 {
 			i++
 			continue
 		}
@@ -209,7 +203,7 @@ func ParseTopo(data []byte) (any, error) {
 	// 合并
 	now := time.Now()
 	topoMu.Lock()
-	// 超时：开始新一轮，自动清空
+	// 超时清空
 	if topoIdleTTL > 0 && !topoLastAt.IsZero() && now.Sub(topoLastAt) > topoIdleTTL {
 		TopoList = TopoList[:0]
 		topoIndex = make(map[string]int)
