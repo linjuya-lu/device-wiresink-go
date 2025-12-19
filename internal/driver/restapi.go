@@ -113,9 +113,9 @@ func (d *WireSinkDriver) handleGetTopology(c echo.Context) error {
 				node.State == expectState &&
 				strings.ToUpper(node.Parent) == expectParent {
 
-				node.Parent = config.GatewayEID
+				node.Parent = config.EidStr
 				foundRoot = true
-				d.lc.Infof("handleGetTopology: 修正根节点 eid=%s 的 parent -> %s", targetEID, config.GatewayEID)
+				d.lc.Infof("handleGetTopology: 修正根节点 eid=%s 的 parent -> %s", targetEID, config.EidStr)
 			}
 
 			// 1. 本模块自身根节点（EID == EidStr）强制保留

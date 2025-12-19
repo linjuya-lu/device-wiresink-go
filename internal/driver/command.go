@@ -141,8 +141,8 @@ func (d *WireSinkDriver) handleRouterParameterQuery() error {
 	if err != nil {
 		return fmt.Errorf("拓扑查询 构造拓扑查询失败: %w", err)
 	}
-	relay.SendFrame(config.GatewayEID, frame)
-	d.lc.Infof("已发送拓扑查询命令到设备(EID: %s)", config.GatewayEID)
+	relay.SendFrame(config.EidStr, frame)
+	d.lc.Infof("已发送拓扑查询命令到设备(EID: %s)", config.EidStr)
 	return nil
 }
 

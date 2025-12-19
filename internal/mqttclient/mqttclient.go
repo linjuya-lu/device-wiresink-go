@@ -18,7 +18,6 @@ var (
 	UpgradeRawDataCh = make(chan []byte, 32) // 升级报文
 )
 
-// MQTT初始化
 func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(brokerURL).
@@ -100,8 +99,8 @@ func decodeHexFlexible(s string) ([]byte, error) {
 }
 
 func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
-	log.Printf("[RAW MQTT] topic=%q qos=%d retained=%v dup=%v len=%d\npayload=%s",
-		msg.Topic(), msg.Qos(), msg.Retained(), msg.Duplicate(),
+	log.Printf("[RAW MQTT] topic=%q  retained=%v dup=%v len=%d\npayload=%s",
+		msg.Topic(), msg.Retained(), msg.Duplicate(),
 		len(msg.Payload()), string(msg.Payload()))
 
 	// 外层

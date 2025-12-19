@@ -10,8 +10,7 @@ const (
 	Version        string = "1.0.0"
 	UpgradeTCPPort uint32 = 12345                                        // TCP端口
 	EidStr                = "238A0841D828"                               // 模块EID
-	GatewayEID            = "238A0841D828"                               // 汇聚网关EID
-	BrokerURL             = "tcp://172.16.19.193:1883"                   //MQTT代理
+	BrokerURL             = "tcp://172.16.19.91:1883"                    //MQTT代理
 	MqttTopicUp           = "edgex/service/request/device-wiresink/up"   // 上行
 	MqttTopicDown         = "edgex/server/response/device-wiresink/down" // 下行
 	DevicesYAML           = "../cmd/res/devices/devices.yaml"

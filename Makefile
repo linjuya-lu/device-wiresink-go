@@ -1,17 +1,12 @@
 .PHONY: build clean docker
-
-# change the following boolean flag to enable or disable the Full RELRO (RELocation Read Only) for linux ELF (Executable and Linkable Format) binaries
 ENABLE_FULL_RELRO=true
-# change the following boolean flag to enable or disable PIE for linux binaries which is needed for ASLR (Address Space Layout Randomization) on Linux, the ASLR support on Windows is enabled by default
-ENABLE_PIE=true
+ENABLE_PIE=false
 
 MICROSERVICES=cmd/device-wiresink
 .PHONY: $(MICROSERVICES)
 
 
 ARCH ?= aarch64
-
-# 规范化 ARCH -> GOOS/GOARCH/GOARM
 ifeq ($(ARCH),aarch64)
   GOOS   ?= linux
   GOARCH ?= arm64
@@ -49,9 +44,9 @@ GOFLAGS=-ldflags "-s -w -X github.com/edgexfoundry/device-wiresink-go.Version=$(
                   $(ENABLE_FULL_RELRO_GOFLAGS)" \
                    -trimpath -mod=readonly
 
-ifeq ($(ENABLE_PIE), true)
-	GOFLAGS += -buildmode=pie
-endif
+# ifeq ($(ENABLE_PIE), true)
+# 	GOFLAGS += -buildmode=pie
+# endif
 
 build: $(MICROSERVICES)
 
@@ -65,7 +60,7 @@ clean:
 
 docker: $(DOCKERS)
 
-docker_device_wiresink_go:
+docker_device_wiresink_go: build
 	docker build \
 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
 		--label "git_sha=$(GIT_SHA)" \
@@ -73,11 +68,13 @@ docker_device_wiresink_go:
 		-t edgexfoundry/device-wiresink:$(VERSION)-dev \
 		.
 
-# arm64 镜像：在 x86 主机用 buildx 也能出 ARM64
+# arm64 镜像：先用 ARCH=aarch64 编出 arm64 的 cmd/device-wiresink，再打镜像
 docker_device_wiresink_go_arm64:
+	$(MAKE) ARCH=aarch64 build
 	docker buildx build --platform linux/arm64 \
 		--build-arg ADD_BUILD_TAGS=$(ADD_BUILD_TAGS) \
 		--label "git_sha=$(GIT_SHA)" \
 		-t edgexfoundry/device-wiresink:$(GIT_SHA)-arm64 \
 		-t edgexfoundry/device-wiresink:$(VERSION)-dev-arm64 \
 		--load .
+
