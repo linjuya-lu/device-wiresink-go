@@ -68,7 +68,6 @@ docker_device_wiresink_go: build
 		-t edgexfoundry/device-wiresink:$(VERSION)-dev \
 		.
 
-# arm64 镜像：先用 ARCH=aarch64 编出 arm64 的 cmd/device-wiresink，再打镜像
 docker_device_wiresink_go_arm64:
 	$(MAKE) ARCH=aarch64 build
 	docker buildx build --platform linux/arm64 \

@@ -59,7 +59,7 @@ func LookupResponseHandle(head uint8) (ResponseHandle, bool) {
 	return handle, ok
 }
 
-// ===================== 通用控制解析函数 =====================
+// 通用控制解析函数
 var (
 	ControlResources          = make(map[string]any)
 	ControlResourcesFlag bool = false
