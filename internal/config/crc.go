@@ -59,7 +59,6 @@ func CRC16(data []byte) uint16 {
 }
 
 func SendFrame(dstAddr string, payload []byte) {
-
 	var parts []string
 	for _, b := range payload {
 		parts = append(parts, fmt.Sprintf("%02X", b))
@@ -74,27 +73,19 @@ func RestCommandBuildFrame(eidStr string, sensorID [6]byte, requestSetFlag byte,
 	if requestSetFlag != 0 && requestSetFlag != 1 {
 		return fmt.Errorf("invalid requestSetFlag %d, must be 0 or 1", requestSetFlag)
 	}
-
 	buf := make([]byte, 0, 6+1+1+4+2)
-
 	buf = append(buf, sensorID[:]...)
-
 	head := byte(0<<4) | byte(0<<3) | byte(0x04&0x07)
 	buf = append(buf, head)
-
 	ctrlByte := byte((0x04&0x7F)<<1) | (requestSetFlag & 0x01)
 	buf = append(buf, ctrlByte)
-
 	tsBytes := make([]byte, 4)
 	binary.LittleEndian.PutUint32(tsBytes, timestamp)
 	buf = append(buf, tsBytes...)
-
 	crc := CRC16(buf)
 	crcBytes := make([]byte, 2)
 	binary.BigEndian.PutUint16(crcBytes, crc)
 	buf = append(buf, crcBytes...)
-
 	SendFrame(eidStr, buf)
-
 	return nil
 }

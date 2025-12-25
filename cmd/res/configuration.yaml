@@ -12,8 +12,8 @@ MessageBus:
     ClientId: device-wiresink
 
 Device:
-  EnableAsyncReadings: true     # 开启异步上报
-  AsyncBufferSize: 16           # 设置异步上报缓冲通道个数
+  EnableAsyncReadings: true     #异步上报
+  AsyncBufferSize: 16           #异步上报缓冲通道个数
   ProfilesDir: "./res/profiles"
   DevicesDir: "./res/devices"
   DataTransform: true

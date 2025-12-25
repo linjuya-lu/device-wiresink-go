@@ -56,7 +56,7 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 		return fmt.Errorf("excel open from %s error: %w", name, err)
 	}
 	defer f.Close()
-	// 第一张表
+	//第一张表
 	sheetName := f.GetSheetName(0)
 	if sheetName == "" {
 		return fmt.Errorf("excel(%s) has no sheets", name)
@@ -65,17 +65,17 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 	if err != nil {
 		return fmt.Errorf("read rows failed(%s): %w", name, err)
 	}
-	// 构建解析表
+	//构建解析表
 	newParamMap := make(map[ParamKey]ParamInfo)
 	for i, row := range rows {
-		// 跳过表头
+		//跳过表头
 		if i == 0 {
 			continue
 		}
 		if len(row) == 0 {
 			continue
 		}
-		// 取单元格
+		//取单元格
 		col := func(idx int) string {
 			if idx < len(row) {
 				return strings.TrimSpace(row[idx])
@@ -86,11 +86,11 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 		typeCodeBits := col(3)
 		dataTypeCN := col(5)
 		dataLenBytes := col(7)
-		// 列缺失跳过
+		//列缺失跳过
 		if featureBits == "" || typeCodeBits == "" || dataTypeCN == "" || dataLenBytes == "" {
 			continue
 		}
-		// 查找解析函数
+		//查找解析函数
 		ti, ok := LookupTypeInfo(dataLenBytes, dataTypeCN)
 		if !ok {
 			fmt.Printf("LoadParamMapFromReader(%s) row=%d: 没有对应数据解析函数 len=%q type=%q\n",
@@ -106,8 +106,8 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 			return fmt.Errorf("row %d: bad typeCodeBits %q: %w", i+1, typeCodeBits, err)
 		}
 		key := ParamKey{
-			FeatureBits: featureVal,  // 参量特征(3位二进制)
-			CodeBits:    typeCodeVal, // 参量类型编码(11位二进制)
+			FeatureBits: featureVal,  //参量特征(3位二进制)
+			CodeBits:    typeCodeVal, //参量类型编码(11位二进制)
 		}
 		newParamMap[key] = ParamInfo{
 			Parse: ti.Parse,
@@ -119,10 +119,8 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 		CodeBits:    0b0000001000,
 	}
 	newParamMap[defaultKey] = ParamInfo{Parse: ParseTopo}
-
 	fmt.Printf("LoadParamMapFromReader(%s): 共载入 %d 条 ParamMap 记录\n",
 		name, len(newParamMap))
-
 	paramMu.Lock()
 	paramMap = newParamMap
 	paramMu.Unlock()

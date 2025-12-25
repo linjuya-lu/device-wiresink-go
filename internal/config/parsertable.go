@@ -9,8 +9,8 @@ import (
 )
 
 type ParamKey struct {
-	FeatureBits byte   // 参量特征
-	CodeBits    uint16 // 类型编码
+	FeatureBits byte   //参量特征
+	CodeBits    uint16 //类型编码
 }
 
 type ParamInfo struct {
@@ -51,8 +51,7 @@ func LookupParamInfo(paramType uint16) (ParamInfo, bool) {
 	return info, ok
 }
 
-// ===================== 通用解析函数 =====================
-
+// 通用解析函数
 func parseFloat32(data []byte) (any, error) {
 	if len(data) != 4 {
 		return nil, fmt.Errorf("期望4字节，实际%d", len(data))
@@ -120,7 +119,7 @@ func parseInt16(data []byte) (any, error) {
 // 拓扑解析
 func ParseTopo(data []byte) (any, error) {
 	n := len(data)
-	// 是否为节点
+	//是否为节点
 	looksLikeNode := func(i int) bool {
 		if i+16 > n {
 			return false
@@ -129,7 +128,7 @@ func ParseTopo(data []byte) (any, error) {
 			data[i+8] == 0x2C &&
 			data[i+10] == 0x2C
 	}
-	// 字节转字符串
+	//字节转字符串
 	toHex12 := func(b []byte) string {
 		const hexdigits = "0123456789ABCDEF"
 		dst := make([]byte, 12)
@@ -140,7 +139,7 @@ func ParseTopo(data []byte) (any, error) {
 		}
 		return string(dst)
 	}
-	// 找起点
+	//找起点
 	i := 0
 	for i < n && !looksLikeNode(i) {
 		i++
@@ -148,7 +147,7 @@ func ParseTopo(data []byte) (any, error) {
 	if i >= n {
 		return nil, fmt.Errorf("未找到节点起点，数拓扑不符合约定")
 	}
-	// 解析所有节点
+	//解析所有节点
 	var entries []NodeTopology
 	for i < n {
 		if !looksLikeNode(i) {
@@ -189,21 +188,21 @@ func ParseTopo(data []byte) (any, error) {
 			Type:   strconv.Itoa(int(typeByte)),
 			Parent: toHex12(parent),
 		})
-		// 帧内节点分隔符：'$'
+		//帧内节点分隔符：'$'
 		if i < n && data[i] == 0x24 {
 			i++
 			continue
 		}
-		// 紧跟下一个节点
+		//紧跟下一个节点
 		if i < n && looksLikeNode(i) {
 			continue
 		}
 		break
 	}
-	// 合并
+	//合并
 	now := time.Now()
 	topoMu.Lock()
-	// 超时清空
+	//超时清空
 	if topoIdleTTL > 0 && !topoLastAt.IsZero() && now.Sub(topoLastAt) > topoIdleTTL {
 		TopoList = TopoList[:0]
 		topoIndex = make(map[string]int)

@@ -55,7 +55,7 @@ func SendPortDecWithQoS(
 		Eid:       eid,
 		Timestamp: uint64(time.Now().Unix()),
 		Datalen:   5,
-		Data:      fmt.Sprintf("%d", port), //  十进制字符串
+		Data:      fmt.Sprintf("%d", port),
 	}
 
 	now := time.Now().UnixNano()

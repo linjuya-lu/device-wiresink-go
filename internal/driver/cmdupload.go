@@ -17,7 +17,6 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 	origin := time.Now().UnixNano()
 	for name, val := range values {
 		d.lc.Infof("一次异步上传: 设备=%s 资源=%s  值=%v", deviceName, name, val)
-
 		var cv *dsModels.CommandValue
 		var err error
 		switch v := val.(type) {

@@ -52,9 +52,7 @@ func LookupDeviceName(sensorID string) (deviceName string, ok bool) {
 func UpdateSensorMapping() {
 	mu1.Lock()
 	defer mu1.Unlock()
-
 	SensorIDToDeviceName = make(map[string]string)
-
 	for deviceName, resourceMap := range ValuesMap {
 		raw, exists := resourceMap["eid"]
 		if !exists {
