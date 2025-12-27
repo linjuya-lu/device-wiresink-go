@@ -13,8 +13,6 @@ const (
 	BrokerURL             = "tcp://172.16.19.91:1883"                    //MQTT代理
 	MqttTopicUp           = "edgex/service/request/device-wiresink/up"   //上行
 	MqttTopicDown         = "edgex/server/response/device-wiresink/down" //下行
-	DevicesYAML           = "../cmd/res/devices/devices.yaml"
-	ProfilesDir           = "../cmd/res/profiles"
 )
 
 var (
@@ -71,9 +69,9 @@ var (
 
 // 拓扑节点
 type NodeTopology struct {
-	EID    string `json:"eid"`            // 节点地址
-	Type   string `json:"type"`           // 节点类型：0=微功率，1=汇聚，2=低功耗，4=接入
-	State  string `json:"state"`          // 在线状态  1=在线，0=离线
-	Parent string `json:"parent"`         // 父节点地址
-	Desc   string `json:"desc,omitempty"` // 节点描述
+	EID    string `json:"eid"`            //节点地址
+	Type   string `json:"type"`           //节点类型：0=微功率，1=汇聚，2=低功耗，4=接入
+	State  string `json:"state"`          //在线状态  1=在线，0=离线
+	Parent string `json:"parent"`         //父节点地址
+	Desc   string `json:"desc,omitempty"` //节点描述
 }

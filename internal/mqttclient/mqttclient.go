@@ -14,8 +14,8 @@ import (
 
 var (
 	MqttClient       mqtt.Client
-	SinkRawDataCh    = make(chan []byte, 32) // 网关自身参数
-	UpgradeRawDataCh = make(chan []byte, 32) // 升级报文
+	SinkRawDataCh    = make(chan []byte, 32) //网关自身参数
+	UpgradeRawDataCh = make(chan []byte, 32) //升级报文
 )
 
 func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
@@ -27,7 +27,6 @@ func NewClient(brokerURL, clientID string) (mqtt.Client, error) {
 		SetConnectRetryInterval(5 * time.Second).
 		SetKeepAlive(60 * time.Second).
 		SetPingTimeout(10 * time.Second)
-
 	client := mqtt.NewClient(opts)
 	token := client.Connect()
 	if ok := token.WaitTimeout(10 * time.Second); !ok {
@@ -52,11 +51,11 @@ type EdgexMessage struct {
 
 // 内层
 type SinkPayload struct {
-	Type      string `json:"Type"`      // sink: 网关自身；sensor: 传感器；update: 升级数据；
-	Eid       string `json:"Eid"`       // 模块 EID
-	Timestamp uint64 `json:"Timestamp"` // 世纪秒时间戳
-	Datalen   int    `json:"Datalen"`   // 原始数据长度
-	Data      string `json:"Data"`      // 原始数据
+	Type      string `json:"Type"`      //sink: 网关自身；sensor: 传感器；update: 升级数据；
+	Eid       string `json:"Eid"`       //模块 EID
+	Timestamp uint64 `json:"Timestamp"` //世纪秒时间戳
+	Datalen   int    `json:"Datalen"`   //原始数据长度
+	Data      string `json:"Data"`      //原始数据
 }
 
 func SubscribeData(cli mqtt.Client, topic string, qos byte) error {
@@ -66,7 +65,6 @@ func SubscribeData(cli mqtt.Client, topic string, qos byte) error {
 	return tok.Error()
 }
 
-// ---- 提取 payload 的原始 JSON 字节 ----
 func payloadBytes(p any) ([]byte, error) {
 	switch v := p.(type) {
 	case nil:
@@ -84,7 +82,7 @@ func payloadBytes(p any) ([]byte, error) {
 	}
 }
 
-// ---- HEX解码预处理：去掉空白、分隔符、0x 前缀 ----
+// HEX预处理：去掉空白、分隔符、0x前缀
 func decodeHexFlexible(s string) ([]byte, error) {
 	r := strings.NewReplacer(
 		" ", "", "\t", "", "\n", "", "\r", "",
@@ -102,7 +100,6 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	log.Printf("[RAW MQTT] topic=%q  retained=%v dup=%v len=%d\npayload=%s",
 		msg.Topic(), msg.Retained(), msg.Duplicate(),
 		len(msg.Payload()), string(msg.Payload()))
-
 	// 外层
 	var env EdgexMessage
 	if err := json.Unmarshal(msg.Payload(), &env); err != nil {
@@ -135,7 +132,6 @@ func MsgHandler(_ mqtt.Client, msg mqtt.Message) {
 	if sp.Datalen >= 0 && sp.Datalen != len(raw) {
 		log.Printf("数据长度(%d) ≠ 实际字节数(%d)", sp.Datalen, len(raw))
 	}
-
 	// 按类型分流
 	t := strings.ToLower(strings.TrimSpace(sp.Type))
 	switch t {
@@ -178,20 +174,20 @@ func normalizeHex(s string) (string, []byte, error) {
 }
 
 func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
-	//预处理
+	// 预处理
 	normHex, raw, err := normalizeHex(data)
 	if err != nil {
 		return fmt.Errorf("invalid hex data: %w", err)
 	}
-	//内层
+	// 内层
 	sp := SinkPayload{
 		Type:      "sink",
 		Eid:       eid,
 		Timestamp: uint64(time.Now().Unix()),
-		Datalen:   len(raw), // 字节数
+		Datalen:   len(raw),
 		Data:      strings.ToUpper(normHex),
 	}
-	//外层
+	// 外层
 	env := EdgexMessage{
 		ApiVersion:    "v3",
 		CorrelationID: fmt.Sprintf("sink-%d", time.Now().UnixNano()),
@@ -200,7 +196,7 @@ func PublishSinkCommand(client mqtt.Client, topic, eid, data string) error {
 		Payload:       sp,
 		ContentType:   "application/json",
 	}
-	//序列化并发布
+	// 序列化并发布
 	body, err := json.Marshal(env)
 	if err != nil {
 		return fmt.Errorf("marshal edgex message: %w", err)

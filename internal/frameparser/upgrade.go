@@ -57,7 +57,7 @@ func ParseFrameBytes(b []byte) (*frame, error) {
 	if len(b) < 7 {
 		return nil, fmt.Errorf("short frame: %d", len(b))
 	}
-	//头+端序
+	// 头+端序
 	be := true
 	switch {
 	case b[0] == 0x5A && b[1] == 0xA5:
@@ -67,14 +67,14 @@ func ParseFrameBytes(b []byte) (*frame, error) {
 	default:
 		return nil, fmt.Errorf("bad sync: %02X %02X", b[0], b[1])
 	}
-	//Packet_Length
+	// Packet_Length
 	var plen uint16
 	if be {
 		plen = binary.BigEndian.Uint16(b[2:4])
 	} else {
 		plen = binary.LittleEndian.Uint16(b[2:4])
 	}
-	//期望总长&实际载荷长度
+	// 期望总长&实际载荷长度
 	totalExpected := int(2 + 2 + plen + 2 + 1) // 4 + plen + 3
 	if len(b) < totalExpected {
 		return nil, fmt.Errorf("incomplete frame: have=%d expect=%d (plen=%d)", len(b), totalExpected, plen)
@@ -96,10 +96,6 @@ func ParseFrameBytes(b []byte) (*frame, error) {
 		f.Payload = b[24 : len(b)-3]
 	}
 	f.End = endTag
-	// if len(b) != totalExpected {
-	//     fmt.Printf("[WARN] length mismatch: len(b)=%d expect=%d (plen=%d actualPlen=%d)\n",
-	//         len(b), totalExpected, plen, actualPlen)
-	// }
 	return &f, nil
 }
 

@@ -26,7 +26,7 @@ endif
 export GOOS GOARCH GOARM
 DOCKERS=docker_device_wiresink_go_arm64
 .PHONY: $(DOCKERS)
-VERSION=$(shell cat ./VERSION 2>/dev/null || echo 0.0.0)
+VERSION=$(shell echo 1.0.0)
 GIT_SHA=$(shell git rev-parse HEAD)
 SDKVERSION=$(shell cat ./go.mod | grep 'github.com/edgexfoundry/device-sdk-go/v4 v' | sed 's/require//g' | awk '{print $$2}')
 

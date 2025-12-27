@@ -73,14 +73,13 @@ func common_para_response(data []byte, frameCtl Frame) error {
 	ControlResourcesFlag = false
 	for parsed < int(frameCtl.DataLen) {
 		if idx+2 > len(data)-2 {
-			log.Printf("参数头越界 SensorID=%s，跳过本帧", frameCtl.SensorID)
+			log.Printf("参数头越界SensorID=%s，跳过本帧", frameCtl.SensorID)
 			break
 		}
 		head16 := binary.LittleEndian.Uint16(data[idx : idx+2])
 		idx += 2
-		paramType := head16 >> 2       //14bit类型码
-		lenFlag := uint8(head16 & 0x3) //2bit长度指示
-		// 数据长度
+		paramType := head16 >> 2       //类型码
+		lenFlag := uint8(head16 & 0x3) //长度指示
 		var dataLen uint32
 		switch lenFlag {
 		case 0:
@@ -95,23 +94,22 @@ func common_para_response(data []byte, frameCtl Frame) error {
 			dataLen = uint32(data[idx])<<16 | uint32(data[idx+1])<<8 | uint32(data[idx+2])
 			idx += 3
 		}
-		// 解析数据
 		if idx+int(dataLen) > len(data)-2 {
-			log.Printf("参数数据越界 SensorID=%s，跳过本帧", frameCtl.SensorID)
+			log.Printf("参数数据越界SensorID=%s，跳过本帧", frameCtl.SensorID)
 			break
 		}
 		valBytes := data[idx : idx+int(dataLen)]
 		idx += int(dataLen)
 		deviceName, hasDevice := LookupDeviceName(frameCtl.SensorID)
 		if !hasDevice {
-			log.Printf("未知 SensorID=%s，跳过本帧", frameCtl.SensorID)
+			log.Printf("未知SensorID=%s，跳过本帧", frameCtl.SensorID)
 			continue
 		}
 		if info, ok := LookupParamInfo(paramType); ok {
 			val, err := info.Parse(valBytes)
 			key := ParamKey{
-				FeatureBits: uint8((paramType >> 11) & 0x07), //3位
-				CodeBits:    uint16(paramType & 0x07FF),      //11位
+				FeatureBits: uint8((paramType >> 11) & 0x07),
+				CodeBits:    uint16(paramType & 0x07FF),
 			}
 			var resName string
 			if rn, ok := ParamEidGet(key, deviceName); ok {
@@ -124,14 +122,14 @@ func common_para_response(data []byte, frameCtl Frame) error {
 			SetDeviceValue(deviceName, resName, val)
 			ControlResources[resName] = val
 			if err != nil {
-				log.Printf(" 参数 %s.%s 解析失败: %v", deviceName, resName, err)
+				log.Printf("参数%s.%s解析失败: %v", deviceName, resName, err)
 			} else {
 				SetDeviceValue(deviceName, resName, val)
 				ControlResources[resName] = val
-				log.Printf("写入值 %s.%s = %v", deviceName, resName, val)
+				log.Printf("写入值%s.%s=%v", deviceName, resName, val)
 			}
 		} else {
-			log.Printf("未找到参数类型信息 type=0x%X", paramType)
+			log.Printf("未找到参数类型信息type=0x%X", paramType)
 		}
 		parsed++
 	}
@@ -143,12 +141,12 @@ func common_para_response(data []byte, frameCtl Frame) error {
 func timestamp_response(data []byte, frameCtl Frame) error {
 	deviceName, hasDevice := LookupDeviceName(frameCtl.SensorID)
 	if !hasDevice {
-		log.Printf("未知 SensorID=%s，跳过本帧", frameCtl.SensorID)
+		log.Printf("未知SensorID=%s，跳过本帧", frameCtl.SensorID)
 	}
-	log.Printf("汇聚网关时间 = 0x%02X", data[0])
+	log.Printf("时间=0x%02X", data[0])
 	secs := binary.LittleEndian.Uint32(data[0:4])
 	t := time.Unix(int64(secs), 0)
-	SetDeviceValue(deviceName, "timestampStr", t.Format("2006-01-02 15:04:05")) // 字符串
+	SetDeviceValue(deviceName, "timestampStr", t.Format("2006-01-02 15:04:05"))
 	return nil
 }
 
@@ -156,7 +154,7 @@ func timestamp_response(data []byte, frameCtl Frame) error {
 func reset_response(data []byte, frameCtl Frame) error {
 	deviceName, hasDevice := LookupDeviceName(frameCtl.SensorID)
 	if !hasDevice {
-		log.Printf("未知 SensorID=%s，跳过本帧", frameCtl.SensorID)
+		log.Printf("未知SensorID=%s，跳过本帧", frameCtl.SensorID)
 	}
 	reset_ctl := "reset_ctl"
 	strVal := strconv.Itoa(int(data[0]))
@@ -167,20 +165,20 @@ func reset_response(data []byte, frameCtl Frame) error {
 func resetCommands(data []byte, frameCtl Frame) error {
 	deviceName, hasDevice := LookupDeviceName(frameCtl.SensorID)
 	if !hasDevice {
-		log.Printf("未知 SensorID=%s，跳过本帧", frameCtl.SensorID)
+		log.Printf("未知SensorID=%s，跳过本帧", frameCtl.SensorID)
 	}
 	eidValue, ok := GetDeviceValue(deviceName, "eid")
 	if !ok {
-		err := fmt.Errorf("设备 %s 的 EID 未初始化", deviceName)
+		err := fmt.Errorf("设备%s的EID未初始化", deviceName)
 		return err
 	}
 	eidBytes, err := hex.DecodeString(EidStr)
 	if err != nil {
-		err = fmt.Errorf("EID[%s] 转十六进制失败: %w", EidStr, err)
+		err = fmt.Errorf("EID[%s]转十六进制失败: %w", EidStr, err)
 		return err
 	}
 	if len(eidBytes) != 6 {
-		err = fmt.Errorf("EID 长度不对，期望 6 字节，实际 %d 字节", len(eidBytes))
+		err = fmt.Errorf("EID长度不对,实际%d字节", len(eidBytes))
 		return err
 	}
 	var sensorID [6]byte
@@ -188,7 +186,6 @@ func resetCommands(data []byte, frameCtl Frame) error {
 	//构建复位帧
 	loc := time.FixedZone("CST", 8*3600)
 	ts := uint32(time.Now().In(loc).Unix()) //当前时间转为世纪秒
-	// 发送命令
 	eidStr, _ := eidValue.(string)
 	RestCommandBuildFrame(eidStr, sensorID, 1, ts)
 	return nil

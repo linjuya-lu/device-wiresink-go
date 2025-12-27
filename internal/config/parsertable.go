@@ -21,7 +21,6 @@ type ParamInfo struct {
 func GetParamInfo(key ParamKey) (ParamInfo, bool) {
 	paramMu.RLock()
 	defer paramMu.RUnlock()
-
 	info, ok := paramMap[key]
 	return info, ok
 }
@@ -47,7 +46,6 @@ func LookupParamInfo(paramType uint16) (ParamInfo, bool) {
 	paramMu.RLock()
 	info, ok := paramMap[key]
 	paramMu.RUnlock()
-
 	return info, ok
 }
 

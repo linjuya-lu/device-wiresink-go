@@ -68,14 +68,12 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 	//构建解析表
 	newParamMap := make(map[ParamKey]ParamInfo)
 	for i, row := range rows {
-		//跳过表头
 		if i == 0 {
 			continue
 		}
 		if len(row) == 0 {
 			continue
 		}
-		//取单元格
 		col := func(idx int) string {
 			if idx < len(row) {
 				return strings.TrimSpace(row[idx])
@@ -86,7 +84,6 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 		typeCodeBits := col(3)
 		dataTypeCN := col(5)
 		dataLenBytes := col(7)
-		//列缺失跳过
 		if featureBits == "" || typeCodeBits == "" || dataTypeCN == "" || dataLenBytes == "" {
 			continue
 		}
@@ -106,8 +103,8 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 			return fmt.Errorf("row %d: bad typeCodeBits %q: %w", i+1, typeCodeBits, err)
 		}
 		key := ParamKey{
-			FeatureBits: featureVal,  //参量特征(3位二进制)
-			CodeBits:    typeCodeVal, //参量类型编码(11位二进制)
+			FeatureBits: featureVal,  //参量特征
+			CodeBits:    typeCodeVal, //参量类型编码
 		}
 		newParamMap[key] = ParamInfo{
 			Parse: ti.Parse,
@@ -119,7 +116,7 @@ func LoadParamMapFromReader(r io.Reader, name string) error {
 		CodeBits:    0b0000001000,
 	}
 	newParamMap[defaultKey] = ParamInfo{Parse: ParseTopo}
-	fmt.Printf("LoadParamMapFromReader(%s): 共载入 %d 条 ParamMap 记录\n",
+	fmt.Printf("LoadParamMapFromReader(%s):共载入%d条ParamMap记录\n",
 		name, len(newParamMap))
 	paramMu.Lock()
 	paramMap = newParamMap

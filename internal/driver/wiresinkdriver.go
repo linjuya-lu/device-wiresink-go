@@ -34,9 +34,9 @@ type WireSinkDriver struct {
 	locker  sync.Mutex
 	sdk     interfaces.DeviceServiceSDK
 
-	upgMu        sync.Mutex //异步升级锁
+	upgMu        sync.Mutex
 	upgrading    map[string]context.CancelFunc
-	upgradeFiles map[string]string // 固件存储路径
+	upgradeFiles map[string]string
 }
 
 func ClearAllAutoEvents(sdk interfaces.DeviceServiceSDK, lc logger.LoggingClient) error {
@@ -48,7 +48,7 @@ func ClearAllAutoEvents(sdk interfaces.DeviceServiceSDK, lc logger.LoggingClient
 		name := d.Name
 		update := dtos.UpdateDevice{
 			Name:       &name,
-			AutoEvents: []dtos.AutoEvent{}, // 清空
+			AutoEvents: []dtos.AutoEvent{},
 		}
 		if err := sdk.PatchDevice(update); err != nil {
 			lc.Errorf("清空设备 %s autoEvents 失败: %v", name, err)
@@ -69,10 +69,8 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	d.sdk = sdk
 	d.lc = sdk.LoggingClient()
 	d.asyncCh = sdk.AsyncValuesChannel()
-
 	host, _ := os.Hostname()
 	clientID := fmt.Sprintf("wiresink-%s-%d", host, os.Getpid())
-
 	client, err := mqttclient.NewClient(config.BrokerURL, clientID)
 	if err != nil {
 		return fmt.Errorf("初始化 MQTT 客户端失败: %w", err)
@@ -84,23 +82,21 @@ func (d *WireSinkDriver) Initialize(sdk interfaces.DeviceServiceSDK) error {
 	if d.upgradeFiles == nil {
 		d.upgradeFiles = make(map[string]string)
 	}
-
 	return nil
 }
 
 func (d *WireSinkDriver) Start() error {
-	// 初始化API
+	//初始化API
 	d.addCustomRoutes()
 	if err := InitDeviceValues(d.sdk, d.lc); err != nil {
 		return fmt.Errorf("Start 初始化设备资源失败: %w", err)
 	}
-
 	// MQTT订阅
 	if err := mqttclient.SubscribeData(mqttclient.MqttClient, config.MqttTopicUp, 0); err != nil {
 		return err
 	}
-	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting) // 业务数据解析协程
-	d.startHealthCheckLoop()                                            // 健康检查
+	frameparser.StartParser(mqttclient.SinkRawDataCh, d.AsyncReporting) //业务数据解析协程
+	d.startHealthCheckLoop()                                            //健康检查
 	d.lc.Infof("有线汇聚已启动......")
 	return nil
 }
@@ -109,14 +105,13 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 	d.locker.Lock()
 	defer d.locker.Unlock()
 	d.lc.Debug("读取命令 : 设备=%s, 资源数=%d", deviceName, len(reqs))
-
 	values, ok := config.GetDeviceValues(deviceName)
 	if !ok {
 		return nil, fmt.Errorf(" 设备 %s 未找到或无可用值", deviceName)
 	}
 	for _, req := range reqs {
 		resName := req.DeviceResourceName
-		// 时间查询
+		//时间查询
 		if resName == "timeQuery" {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {
 				return nil, err
@@ -128,7 +123,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
-		// 复位设置
+		//复位设置
 		if resName == "reset" {
 			if err := d.handleResetCommand(deviceName); err != nil {
 				return nil, err
@@ -140,7 +135,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
-		// 时间同步
+		//时间同步
 		if resName == "timeSync" {
 			if err := d.handleTimeParameterSet(deviceName); err != nil {
 				return nil, err
@@ -152,7 +147,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
-		// 工况查询
+		//工况查询
 		if resName == "operStatus" {
 			if err := d.handleIdMoniDataQuery(deviceName); err != nil {
 				return nil, err
@@ -164,7 +159,7 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 			res = append(res, cv)
 			continue
 		}
-		// 常规资源
+		//常规资源
 		val, exists := values[resName]
 		if !exists {
 			return nil, fmt.Errorf(" 设备 %s 上未找到资源 %s 的值", deviceName, resName)
@@ -182,7 +177,6 @@ func (d *WireSinkDriver) HandleReadCommands(deviceName string, protocols map[str
 func (d *WireSinkDriver) HandleWriteCommands(deviceName string, protocols map[string]models.ProtocolProperties, reqs []dsModels.CommandRequest, params []*dsModels.CommandValue) error {
 	d.locker.Lock()
 	defer d.locker.Unlock()
-
 	d.lc.Debug("设备=%s, 请求数=%d", deviceName, len(reqs))
 	for i, req := range reqs {
 		resName := req.DeviceResourceName
@@ -197,11 +191,11 @@ func (d *WireSinkDriver) Stop(force bool) error {
 	return nil
 }
 
-// 辅助解析
 func parseBin8(s string) (uint8, error) {
 	u, err := strconv.ParseUint(s, 2, 8)
 	return uint8(u), err
 }
+
 func parseBin16(s string) (uint16, error) {
 	u, err := strconv.ParseUint(s, 2, 16)
 	return uint16(u), err
@@ -209,11 +203,9 @@ func parseBin16(s string) (uint16, error) {
 
 func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
 	d.lc.Debugf("添加设备: %s", deviceName)
-
 	if err := ClearAllAutoEvents(d.sdk, d.lc); err != nil {
 		return fmt.Errorf("Start 清空 autoEvents 失败: %w", err)
 	}
-
 	//添加EID
 	if eid, ok := extractEID(protocols); ok {
 		config.AddMapping(eid, deviceName)
@@ -239,39 +231,31 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 			return fmt.Errorf("初始化设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
 		d.lc.Debugf("已将设备 %s 的资源 %s 初始化: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
-
-		// ===== attributes.lora=====
 		var featStr, typeStr string
-
 		if dr.Attributes == nil {
 			d.lc.Debugf("资源 %s 未配置 attributes，跳过 LoRa 登记", resName)
 			continue
 		}
-
 		rawLora, ok := dr.Attributes["lora"]
 		if !ok || rawLora == nil {
 			d.lc.Debugf("资源 %s 未配置 attributes.lora，跳过 LoRa 登记", resName)
 			continue
 		}
-
 		loraMap, ok := rawLora.(map[string]any)
 		if !ok {
 			d.lc.Warnf("资源 %s attributes.lora 类型异常: %T，期望 map[string]any，跳过 LoRa 登记", resName, rawLora)
 			continue
 		}
-
 		if v, ok := loraMap["paramFeatures"]; ok && v != nil {
 			featStr = strings.TrimSpace(fmt.Sprint(v))
 		}
 		if v, ok := loraMap["paramType"]; ok && v != nil {
 			typeStr = strings.TrimSpace(fmt.Sprint(v))
 		}
-
 		if featStr == "" || typeStr == "" {
 			d.lc.Debugf("资源 %s 的 lora.paramFeatures 或 lora.paramType 为空，跳过 LoRa 登记", resName)
 			continue
 		}
-
 		featureBits, err1 := parseBin8(featStr)
 		typeBits, err2 := parseBin16(typeStr)
 		if err1 != nil || err2 != nil {
@@ -279,7 +263,6 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 				resName, featStr, err1, typeStr, err2)
 			continue
 		}
-
 		key := config.ParamKey{
 			FeatureBits: featureBits,
 			CodeBits:    typeBits,
@@ -287,18 +270,15 @@ func (d *WireSinkDriver) AddDevice(deviceName string, protocols map[string]model
 		config.ParamEidAdd(key, deviceName, resName)
 		d.lc.Debugf("ParamEidRegistry 登记: dev=%s res=%s -> Feature=%03b Code=%011b",
 			deviceName, resName, featureBits, typeBits)
-		// ===== LoRa 属性解析结束 =====
 	}
 	return nil
 }
 
 func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]models.ProtocolProperties, adminState models.AdminState) error {
 	d.lc.Debugf("更新设备 %s", deviceName)
-
 	if err := ClearAllAutoEvents(d.sdk, d.lc); err != nil {
 		return fmt.Errorf("Start 清空 autoEvents 失败: %w", err)
 	}
-
 	//更新EID
 	if eid, ok := extractEID(protocols); ok {
 		config.UpdateMapping(eid, deviceName)
@@ -324,26 +304,21 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 			return fmt.Errorf("更新设备 %s 资源 %s 失败：%v", deviceName, resName, err)
 		}
 		d.lc.Debugf("已将设备 %s 的资源 %s 初始化: %s (类型: %s)", deviceName, resName, defaultValue, valueType)
-		// ===== attributes.lora=====
 		var featStr, typeStr string
-
 		if dr.Attributes == nil {
 			d.lc.Debugf("资源 %s 未配置 attributes，跳过 LoRa 登记", resName)
 			continue
 		}
-
 		rawLora, ok := dr.Attributes["lora"]
 		if !ok || rawLora == nil {
 			d.lc.Debugf("资源 %s 未配置 attributes.lora，跳过 LoRa 登记", resName)
 			continue
 		}
-
 		loraMap, ok := rawLora.(map[string]any)
 		if !ok {
 			d.lc.Warnf("资源 %s attributes.lora 类型异常: %T，期望 map[string]any，跳过 LoRa 登记", resName, rawLora)
 			continue
 		}
-
 		if v, ok := loraMap["paramFeatures"]; ok && v != nil {
 			featStr = strings.TrimSpace(fmt.Sprint(v))
 		}
@@ -355,7 +330,6 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 			d.lc.Debugf("资源 %s 的 lora.paramFeatures 或 lora.paramType 为空，跳过 LoRa 登记", resName)
 			continue
 		}
-
 		featureBits, err1 := parseBin8(featStr)
 		typeBits, err2 := parseBin16(typeStr)
 		if err1 != nil || err2 != nil {
@@ -363,7 +337,6 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 				resName, featStr, err1, typeStr, err2)
 			continue
 		}
-
 		key := config.ParamKey{
 			FeatureBits: featureBits,
 			CodeBits:    typeBits,
@@ -378,11 +351,9 @@ func (d *WireSinkDriver) UpdateDevice(deviceName string, protocols map[string]mo
 
 func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]models.ProtocolProperties) error {
 	d.lc.Debugf("移除设备： %s", deviceName)
-
 	if err := ClearAllAutoEvents(d.sdk, d.lc); err != nil {
 		return fmt.Errorf("Start 清空 autoEvents 失败: %w", err)
 	}
-
 	//移除EID
 	if eid, ok := extractEID(protocols); ok {
 		config.DeleteMapping(eid)
@@ -454,15 +425,12 @@ func (d *WireSinkDriver) RemoveDevice(deviceName string, protocols map[string]mo
 		config.ParamEidDelete(key, deviceName)
 		d.lc.Debugf("ParamEidRegistry 删除: dev=%s res=%s -> Feature=%03b Code=%011b",
 			deviceName, resName, featureBits, typeBits)
-		// ===== LoRa 属性解析结束 =====
 	}
-
 	if err := config.DeleteSensorIDMappingsByDevice(deviceName); err != nil {
 		d.lc.Errorf("删除设备映射错误 %s : %v", deviceName, err)
 		return fmt.Errorf("删除错误 %s : %w", deviceName, err)
 	}
 	d.lc.Infof("成功移除 %s ", deviceName)
-
 	return nil
 }
 
@@ -477,7 +445,6 @@ func (s *WireSinkDriver) ValidateDevice(device models.Device) error {
 	if lora == nil {
 		return errors.New("协议字段未包含 'LoRa'")
 	}
-
 	raw, ok := lora["eid"]
 	if !ok {
 		return errors.New("未包含 'LoRa.eid'")
@@ -490,7 +457,6 @@ func (s *WireSinkDriver) ValidateDevice(device models.Device) error {
 	if eid == "" {
 		return errors.New("LoRa.eid 为空")
 	}
-
 	return nil
 }
 
@@ -501,7 +467,6 @@ func (d *WireSinkDriver) Discover() error {
 // EdgeX类型匹配
 func coerceTo(val any, valueType string) (any, error) {
 	switch valueType {
-
 	case common.ValueTypeBool:
 		switch x := val.(type) {
 		case bool:
@@ -517,7 +482,6 @@ func coerceTo(val any, valueType string) (any, error) {
 		case int, int32, int64, uint, uint32, uint64:
 			return fmt.Sprint(x) != "0", nil
 		}
-
 	case common.ValueTypeInt8:
 		if v, ok := toInt64(val); ok {
 			if v < math.MinInt8 || v > math.MaxInt8 {
@@ -526,7 +490,6 @@ func coerceTo(val any, valueType string) (any, error) {
 			return int8(v), nil
 		}
 		return nil, typeErr(val, "int8")
-
 	case common.ValueTypeInt16:
 		if v, ok := toInt64(val); ok {
 			if v < math.MinInt16 || v > math.MaxInt16 {
@@ -535,7 +498,6 @@ func coerceTo(val any, valueType string) (any, error) {
 			return int16(v), nil
 		}
 		return nil, typeErr(val, "int16")
-
 	case common.ValueTypeInt32:
 		if v, ok := toInt64(val); ok {
 			if v < math.MinInt32 || v > math.MaxInt32 {
@@ -544,13 +506,11 @@ func coerceTo(val any, valueType string) (any, error) {
 			return int32(v), nil
 		}
 		return nil, typeErr(val, "int32")
-
 	case common.ValueTypeInt64:
 		if v, ok := toInt64(val); ok {
 			return v, nil
 		}
 		return nil, typeErr(val, "int64")
-
 	case common.ValueTypeUint8:
 		if v, ok := toUint64(val); ok {
 			if v > math.MaxUint8 {
@@ -559,7 +519,6 @@ func coerceTo(val any, valueType string) (any, error) {
 			return uint8(v), nil
 		}
 		return nil, typeErr(val, "uint8")
-
 	case common.ValueTypeUint16:
 		if v, ok := toUint64(val); ok {
 			if v > math.MaxUint16 {
@@ -568,7 +527,6 @@ func coerceTo(val any, valueType string) (any, error) {
 			return uint16(v), nil
 		}
 		return nil, typeErr(val, "uint16")
-
 	case common.ValueTypeUint32:
 		if v, ok := toUint64(val); ok {
 			if v > math.MaxUint32 {
@@ -577,13 +535,11 @@ func coerceTo(val any, valueType string) (any, error) {
 			return uint32(v), nil
 		}
 		return nil, typeErr(val, "uint32")
-
 	case common.ValueTypeUint64:
 		if v, ok := toUint64(val); ok {
 			return v, nil
 		}
 		return nil, typeErr(val, "uint64")
-
 	case common.ValueTypeFloat32:
 		if f, ok := toFloat64(val); ok {
 			if f < -math.MaxFloat32 || f > math.MaxFloat32 {
@@ -592,13 +548,11 @@ func coerceTo(val any, valueType string) (any, error) {
 			return float32(f), nil
 		}
 		return nil, typeErr(val, "float32")
-
 	case common.ValueTypeFloat64:
 		if f, ok := toFloat64(val); ok {
 			return f, nil
 		}
 		return nil, typeErr(val, "float64")
-
 	case common.ValueTypeString:
 		switch x := val.(type) {
 		case string:
@@ -606,7 +560,6 @@ func coerceTo(val any, valueType string) (any, error) {
 		default:
 			return fmt.Sprint(x), nil
 		}
-
 	case common.ValueTypeBinary:
 		switch x := val.(type) {
 		case []byte:
@@ -620,7 +573,6 @@ func coerceTo(val any, valueType string) (any, error) {
 		}
 		return nil, typeErr(val, "[]byte")
 	}
-
 	return nil, fmt.Errorf("coerceTo unsupported ValueType %q", valueType)
 }
 
@@ -663,6 +615,7 @@ func toInt64(v any) (int64, bool) {
 	}
 	return 0, false
 }
+
 func toUint64(v any) (uint64, bool) {
 	switch x := v.(type) {
 	case uint8:
@@ -695,6 +648,7 @@ func toUint64(v any) (uint64, bool) {
 	}
 	return 0, false
 }
+
 func toFloat64(v any) (float64, bool) {
 	switch x := v.(type) {
 	case float64:
@@ -714,6 +668,7 @@ func toFloat64(v any) (float64, bool) {
 	}
 	return 0, false
 }
+
 func makeCV(name string, valueType string, val any) (*dsModels.CommandValue, error) {
 	cval, err := coerceTo(val, valueType)
 	if err != nil {
@@ -727,9 +682,9 @@ func makeCV(name string, valueType string, val any) (*dsModels.CommandValue, err
 	return cv, nil
 }
 
-// 提取 LoRa.eid
+// 提取LoRa.eid
 func extractEID(protocols map[string]models.ProtocolProperties) (string, bool) {
-	// 找到 "lora"
+	//找到"lora"
 	var loraProps models.ProtocolProperties
 	for k, v := range protocols {
 		if strings.EqualFold(k, "lora") {
@@ -740,7 +695,7 @@ func extractEID(protocols map[string]models.ProtocolProperties) (string, bool) {
 	if loraProps == nil {
 		return "", false
 	}
-	// 读出 eid
+	//读出eid
 	for _, key := range []string{"eid"} {
 		if val, ok := loraProps[key]; ok {
 			switch t := val.(type) {

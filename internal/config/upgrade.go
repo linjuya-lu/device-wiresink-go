@@ -2,8 +2,8 @@ package config
 
 // 升级处理
 type FrameFlags struct {
-	Acked          bool //是否收到响应
-	NeedComplement bool //是否需要补包
+	Acked          bool
+	NeedComplement bool
 }
 
 // 设置ACK
@@ -24,7 +24,6 @@ func GetAck() int {
 	return AckReceived
 }
 
-// 心跳处理
 // 更新时间戳
 func UpdateLastDataTs(dev string, ts int64) {
 	mu.Lock()

@@ -87,7 +87,7 @@ func DeleteDeviceValues(deviceName string) error {
 	Mu.Lock()
 	defer Mu.Unlock()
 	if _, exists := ValuesMap[deviceName]; !exists {
-		return fmt.Errorf("DeleteDeviceValues 设备 %s 不存在于运行时值表中", deviceName)
+		return fmt.Errorf("DeleteDeviceValues: 设备 %s 不存在于运行时值表中", deviceName)
 	}
 	delete(ValuesMap, deviceName)
 	return nil

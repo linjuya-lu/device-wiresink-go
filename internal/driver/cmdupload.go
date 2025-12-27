@@ -12,7 +12,6 @@ func (d *WireSinkDriver) AsyncReporting(deviceName string, sourceName string, va
 		d.lc.Debugf("异步上传没有要上报的值")
 		return
 	}
-
 	var cvs []*dsModels.CommandValue
 	origin := time.Now().UnixNano()
 	for name, val := range values {
